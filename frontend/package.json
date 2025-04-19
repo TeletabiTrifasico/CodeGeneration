@@ -13,7 +13,8 @@
     "bootstrap": "^5.3.5",
     "typescript": "^5.8.3",
     "vue": "^3.5.13",
-    "vue-redux": "^0.0.2"
+    "vue-redux": "^0.0.2",
+    "vue-router": "^4.5.0"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.2.3",

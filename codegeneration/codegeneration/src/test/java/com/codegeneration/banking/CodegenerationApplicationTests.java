@@ -1,4 +1,4 @@
-package com.codegeneration.codegeneration;
+package com.codegeneration.banking;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
