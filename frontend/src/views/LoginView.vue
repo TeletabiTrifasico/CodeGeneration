@@ -96,6 +96,7 @@ export default defineComponent({
       </form>
       <div class="links">
         <router-link to="/">Back to Home</router-link>
+        <router-link to="/register">Don't have an account? Register</router-link>
         <a href="#" @click.prevent="showForgotPassword">Forgot Password?</a>
       </div>
     </div>

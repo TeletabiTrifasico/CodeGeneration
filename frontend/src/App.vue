@@ -46,6 +46,7 @@ export default defineComponent({
           <router-link to="/" class="nav-link">Home</router-link>
           <template v-if="!isLoggedIn">
             <router-link to="/login" class="nav-link">Login</router-link>
+            <router-link to="/register" class="nav-link">Register</router-link> <!-- Added Register link -->
           </template>
           <template v-else>
             <router-link to="/dashboard" class="nav-link">Dashboard</router-link>

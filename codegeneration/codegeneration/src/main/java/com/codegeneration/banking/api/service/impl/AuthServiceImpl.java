@@ -2,8 +2,10 @@ package com.codegeneration.banking.api.service.impl;
 
 import com.codegeneration.banking.api.dto.LoginRequest;
 import com.codegeneration.banking.api.dto.LoginResponse;
+import com.codegeneration.banking.api.dto.RegisterRequest;
 import com.codegeneration.banking.api.dto.UserDTO;
 import com.codegeneration.banking.api.entity.User;
+import com.codegeneration.banking.api.exception.ConflictException;
 import com.codegeneration.banking.api.exception.UnauthorizedException;
 import com.codegeneration.banking.api.repository.UserRepository;
 import com.codegeneration.banking.api.security.JwtTokenProvider;
@@ -14,7 +16,9 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -26,6 +30,7 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     public LoginResponse login(LoginRequest loginRequest) {
@@ -41,7 +46,7 @@ public class AuthServiceImpl implements AuthService {
                     (org.springframework.security.core.userdetails.User) authentication.getPrincipal();
 
             User user = userRepository.findByUsername(userDetails.getUsername())
-                    .orElseThrow(() -> new UnauthorizedException("User not found"));
+                    .orElseThrow(() -> new UnauthorizedException("User not found after authentication"));
 
             String token = jwtTokenProvider.generateToken(authentication);
 
@@ -49,13 +54,7 @@ public class AuthServiceImpl implements AuthService {
                     .map(GrantedAuthority::getAuthority)
                     .collect(Collectors.toList());
 
-            UserDTO userDTO = UserDTO.builder()
-                    .id(user.getId())
-                    .username(user.getUsername())
-                    .name(user.getName())
-                    .email(user.getEmail())
-                    .roles(roles)
-                    .build();
+            UserDTO userDTO = UserDTO.fromEntity(user);
 
             return LoginResponse.builder()
                     .token(token)
@@ -69,7 +68,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public UserDTO validateToken(String token) {
-        // Validate token
+         // Validate token
         if (!jwtTokenProvider.validateToken(token)) {
             throw new UnauthorizedException("Invalid token");
         }
@@ -80,12 +79,31 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UnauthorizedException("User not found"));
 
-        return UserDTO.builder()
-                .id(user.getId())
-                .username(user.getUsername())
-                .name(user.getName())
-                .email(user.getEmail())
-                .roles(roles)
+        return UserDTO.fromEntity(user);
+    }
+
+    @Override
+    @Transactional
+    public UserDTO register(RegisterRequest registerRequest) {
+        if (userRepository.existsByUsername(registerRequest.getUsername())) {
+            throw new ConflictException("Username already exists: " + registerRequest.getUsername());
+        }
+
+        if (userRepository.existsByEmail(registerRequest.getEmail())) {
+            throw new ConflictException("Email already exists: " + registerRequest.getEmail());
+        }
+
+        User newUser = User.builder()
+                .username(registerRequest.getUsername())
+                .name(registerRequest.getName())
+                .email(registerRequest.getEmail())
+                .password(passwordEncoder.encode(registerRequest.getPassword()))
+                .roles(List.of("ROLE_USER"))
+                .enabled(true)
                 .build();
+
+        User savedUser = userRepository.save(newUser);
+
+        return UserDTO.fromEntity(savedUser);
     }
 }
