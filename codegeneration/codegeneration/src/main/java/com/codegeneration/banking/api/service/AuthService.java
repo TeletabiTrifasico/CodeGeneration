@@ -15,6 +15,7 @@ public interface AuthService {
      */
     LoginResponse login(LoginRequest loginRequest);
 
+
     /**
      * Validate a JWT token and return user information
      *
@@ -22,6 +23,7 @@ public interface AuthService {
      * @return User information if token is valid
      */
     UserDTO validateToken(String token);
+
 
     /**
      * Register a new user

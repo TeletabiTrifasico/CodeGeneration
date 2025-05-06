@@ -2,6 +2,7 @@ import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
 import HomeView from '../views/HomeView.vue';
 import LoginView from '../views/LoginView.vue';
 import RegisterView from '@/views/RegisterView.vue';
+import AuthService from '@/services/AuthService';
 
 const routes: Array<RouteRecordRaw> = [
     {
@@ -12,14 +13,15 @@ const routes: Array<RouteRecordRaw> = [
     {
         path: '/login',
         name: 'login',
-        component: LoginView
+        component: LoginView,
+        meta: { guestOnly: true }
     },
     {
         path: '/register',
         name: 'register',
-        component: RegisterView
+        component: RegisterView,
+        meta: { guestOnly: true }
     },
-
     {
         path: '/dashboard',
         name: 'dashboard',
@@ -40,15 +42,46 @@ const router = createRouter({
 });
 
 // Navigation guard to check for authentication
-router.beforeEach((to, from, next) => {
-    const isAuthenticated = !!localStorage.getItem('token');
+router.beforeEach(async (to, from, next) => {
+    // Check if the route requires authentication
+    const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
 
-    if (to.meta.requiresAuth && !isAuthenticated) {
-        // Redirect to login if trying to access protected route without auth
-        next({ name: 'login' });
-    } else {
+    // Check if the route is for guests only (login, register)
+    const guestOnly = to.matched.some(record => record.meta.guestOnly);
+
+    // Determine user authentication status
+    const isAuthenticated = AuthService.isLoggedIn();
+
+    // Logic for authenticated routes
+    if (requiresAuth) {
+        if (isAuthenticated) {
+            // Validate token on sensitive routes
+            try {
+                await AuthService.validateToken();
+                next();
+            } catch (error) {
+                next({ name: 'login' });
+            }
+        } else {
+            // Redirect to login
+            next({
+                name: 'login',
+                query: { redirect: to.fullPath }  // Save the route they were trying to access
+            });
+        }
+    }
+    // Logic for guest-only routes
+    else if (guestOnly && isAuthenticated) {
+        // Redirect to dashboard if trying to access login/register while authenticated
+        next({ name: 'dashboard' });
+    }
+    // Allow access to public routes
+    else {
         next();
     }
 });
+
+// Initialize AuthService with the router
+AuthService.setRouter(router);
 
 export default router;

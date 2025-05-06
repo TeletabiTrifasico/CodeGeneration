@@ -1,5 +1,6 @@
 package com.codegeneration.banking.api.security;
 
+import com.codegeneration.banking.api.service.tokenblacklistservice.TokenBlacklistService;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +11,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -24,6 +26,8 @@ public class JwtTokenProvider {
 
     @Value("${app.jwt.expiration}")
     private int jwtExpirationInMs;
+
+    private final TokenBlacklistService tokenBlacklistService;
 
     /**
      * Generate a JWT token from authentication object
@@ -93,6 +97,37 @@ public class JwtTokenProvider {
     }
 
     /**
+     * Get expiration date from JWT token
+     *
+     * @param token JWT token
+     * @return Expiration date
+     */
+    public Date getExpirationDateFromToken(String token) {
+        SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes());
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+
+        return claims.getExpiration();
+    }
+
+    /**
+     * Blacklist a token
+     *
+     * @param token JWT token
+     */
+    public void blacklistToken(String token) {
+        try {
+            Date expiryDate = getExpirationDateFromToken(token);
+            tokenBlacklistService.blacklistToken(token, expiryDate.toInstant());
+        } catch (Exception e) {
+            log.error("Error blacklisting token", e);
+        }
+    }
+
+    /**
      * Validate JWT token
      *
      * @param token JWT token
@@ -100,6 +135,12 @@ public class JwtTokenProvider {
      */
     public boolean validateToken(String token) {
         try {
+            // Check if token is blacklisted
+            if (tokenBlacklistService.isBlacklisted(token)) {
+                log.warn("Blacklisted token detected");
+                return false;
+            }
+
             SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes());
             Jwts.parserBuilder()
                     .setSigningKey(key)

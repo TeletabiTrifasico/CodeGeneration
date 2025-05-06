@@ -2,20 +2,28 @@ package com.codegeneration.banking.controllers;
 
 import com.codegeneration.banking.api.dto.LoginRequest;
 import com.codegeneration.banking.api.dto.LoginResponse;
+import com.codegeneration.banking.api.dto.logout.LogoutRequest;
 import com.codegeneration.banking.api.dto.RegisterRequest;
 import com.codegeneration.banking.api.dto.UserDTO;
 import com.codegeneration.banking.api.service.AuthService;
+import com.codegeneration.banking.api.service.impl.AuthServiceImpl;
+import com.codegeneration.banking.api.security.JwtAuthenticationFilter;
+import com.codegeneration.banking.api.security.JwtTokenProvider;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -25,6 +33,9 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final AuthServiceImpl authServiceImpl;
+    private final JwtTokenProvider jwtTokenProvider; // Add this field
+    private final JwtAuthenticationFilter jwtAuthenticationFilter; // Add this field
 
     @Operation(summary = "Login a user", description = "Authenticates a user and returns a JWT token")
     @ApiResponses(value = {
@@ -36,6 +47,34 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest loginRequest) {
         return ResponseEntity.ok(authService.login(loginRequest));
+    }
+
+    @Operation(summary = "Logout a user", description = "Logs out a user by invalidating their JWT token")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully logged out"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    @PostMapping("/logout")
+    public ResponseEntity<Map<String, String>> logout(HttpServletRequest request, @RequestBody(required = false) LogoutRequest logoutRequest) {
+        // Get token from Authorization header or request body
+        String token;
+        if (logoutRequest != null && logoutRequest.getToken() != null) {
+            token = logoutRequest.getToken();
+        } else {
+            token = jwtAuthenticationFilter.getJwtFromRequest(request); // Use instance method
+        }
+
+        // Blacklist the token
+        if (token != null) {
+            // Use the instance method, not static method
+            jwtTokenProvider.blacklistToken(token);
+        }
+
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Logged out successfully");
+
+        return ResponseEntity.ok(response);
     }
 
     @Operation(summary = "Validate token", description = "Validates a JWT token and returns user information")
