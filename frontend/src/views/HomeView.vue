@@ -11,7 +11,10 @@ export default defineComponent({
     <div class="hero">
       <h1>Welcome to Banking App</h1>
       <p>Your secure online banking solution</p>
-      <router-link to="/login" class="cta-button">Login</router-link>
+      <div class="hero-buttons">
+        <router-link to="/login" class="cta-button">Login</router-link>
+        <router-link to="/register" class="cta-button secondary">Register</router-link>
+      </div>
     </div>
     <div class="features">
       <div class="feature">
@@ -56,10 +59,17 @@ export default defineComponent({
 .hero p {
   font-size: 1.3rem;
   color: #666;
-  margin-bottom: 40px;
+  margin-bottom: 30px; /* Adjusted margin */
   max-width: 800px;
   margin-left: auto;
   margin-right: auto;
+}
+
+.hero-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 20px; /* Add space between buttons */
+  margin-top: 40px; /* Add margin from paragraph */
 }
 
 .cta-button {
@@ -72,12 +82,26 @@ export default defineComponent({
   font-weight: bold;
   font-size: 1.2rem;
   transition: all 0.3s ease;
+  border: 2px solid transparent;
 }
 
 .cta-button:hover {
   background-color: #45a049;
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Style for the secondary register button */
+.cta-button.secondary {
+  background-color: #fff;
+  color: #4CAF50;
+  border: 2px solid #4CAF50;
+}
+
+.cta-button.secondary:hover {
+  background-color: #f0f0f0;
+  color: #388E3C;
+  border-color: #388E3C;
 }
 
 .features {
@@ -201,6 +225,18 @@ export default defineComponent({
   .feature h2 {
     font-size: 1.4rem;
     margin-bottom: 15px;
+  }
+
+  .hero-buttons {
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .cta-button {
+    padding: 12px 30px;
+    font-size: 1.1rem;
+    width: 80%; /* Make buttons wider on small screens */
+    margin: 0 auto; /* Center buttons */
   }
 }
 </style>

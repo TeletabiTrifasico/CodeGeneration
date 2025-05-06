@@ -1,5 +1,7 @@
 package com.codegeneration.banking.api.dto;
 
+import com.codegeneration.banking.api.entity.User;
+import com.codegeneration.banking.api.enums.UserRole;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -27,6 +29,24 @@ public class UserDTO {
     @Schema(description = "Email address", example = "john.doe@example.com")
     private String email;
 
-    @Schema(description = "User roles", example = "[\"USER\", \"ADMIN\"]")
-    private List<String> roles;
+    @Schema(description = "User role", example = "CLIENT")
+    private UserRole role;
+
+    /**
+     * method to create a UserDTO from a User entity.
+     * @param user The User entity.
+     * @return A UserDTO instance.
+     */
+    public static UserDTO fromEntity(User user) {
+        if (user == null) {
+            return null;
+        }
+        return UserDTO.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .name(user.getName())
+                .email(user.getEmail())
+                .role(user.getRole())
+                .build();
+    }
 }
