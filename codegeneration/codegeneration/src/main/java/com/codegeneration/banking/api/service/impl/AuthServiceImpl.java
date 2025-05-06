@@ -69,7 +69,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public UserDTO validateToken(String token) {
-         // Validate token
+
         if (!jwtTokenProvider.validateToken(token)) {
             throw new UnauthorizedException("Invalid token");
         }

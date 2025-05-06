@@ -1,4 +1,4 @@
-﻿package com.codegeneration.banking.api.enums;
+package com.codegeneration.banking.api.enums;
 
 public enum Currency {
     EUR,

@@ -1,13 +1,6 @@
-import requestService, { ErrorResponse } from './RequestService';
+import requestService from './RequestService';
 import { Router } from 'vue-router';
-
-// Define types for better type safety
-export interface User {
-    id: number;
-    username: string;
-    name: string;
-    email: string;
-}
+import { User } from '@/models';
 
 export interface LoginResponse {
     token: string;
@@ -17,115 +10,62 @@ export interface LoginResponse {
 }
 
 class AuthService {
-    private AUTH_API_PATH = '/auth';
-    private tokenExpirationTimer: number | null = null;
+    private tokenKey: string = 'token';
+    private userKey: string = 'user';
+    private refreshTokenKey: string = 'refresh_token';
+    private expiresAtKey: string = 'token_expires_at';
     private router: Router | null = null;
 
-    // Method to initialize the router (call this in app initialization)
+    // Set the router for navigation
     setRouter(router: Router): void {
         this.router = router;
     }
 
+    // Login method
     async login(username: string, password: string): Promise<LoginResponse> {
         try {
-            const response = await requestService.post<LoginResponse>(
-                `${this.AUTH_API_PATH}/login`,
-                { username, password }
-            );
+            // Send login request
+            const response = await requestService.post('/auth/login', { username, password });
 
-            // Store token and user data
+            // Store authentication data
             this.setSession(response);
 
             return response;
-        } catch (error) {
-            throw error as ErrorResponse;
+        } catch (error: any) {
+            console.error('Login failed:', error);
+            throw error;
         }
     }
 
-    /**
-     * Set authentication session and schedule token refresh
-     */
+    // Set the session data
     private setSession(authResult: LoginResponse): void {
-        // Calculate token expiration time
         const expiresAt = new Date().getTime() + authResult.expiresIn * 1000;
 
-        // Store auth data
-        localStorage.setItem('token', authResult.token);
-        localStorage.setItem('refresh_token', authResult.refreshToken);
-        localStorage.setItem('token_expires_at', expiresAt.toString());
-        localStorage.setItem('user', JSON.stringify(authResult.user));
-
-        // Schedule token refresh
-        this.scheduleTokenRefresh();
+        localStorage.setItem(this.tokenKey, authResult.token);
+        localStorage.setItem(this.refreshTokenKey, authResult.refreshToken);
+        localStorage.setItem(this.expiresAtKey, expiresAt.toString());
+        localStorage.setItem(this.userKey, JSON.stringify(authResult.user));
     }
 
-    /**
-     * Schedule token refresh before it expires
-     */
-    private scheduleTokenRefresh(): void {
-        // Clear any existing timer
-        if (this.tokenExpirationTimer !== null) {
-            window.clearTimeout(this.tokenExpirationTimer);
-        }
-
-        const expiresAt = Number(localStorage.getItem('token_expires_at') || '0');
-        const now = new Date().getTime();
-
-        if (expiresAt > now) {
-            // Schedule refresh 1 minute before token expires
-            const timeUntilRefresh = Math.max(0, expiresAt - now - 60000);
-
-            this.tokenExpirationTimer = window.setTimeout(() => {
-                this.refreshToken().catch(() => {
-                    // If refresh fails, redirect to login
-                    this.logout();
-                });
-            }, timeUntilRefresh);
-        }
-    }
-
-    /**
-     * Refresh the access token using the refresh token
-     */
-    async refreshToken(): Promise<boolean> {
-        try {
-            const refreshToken = localStorage.getItem('refresh_token');
-
-            if (!refreshToken) {
-                return false;
-            }
-
-            const response = await requestService.post<LoginResponse>(
-                `${this.AUTH_API_PATH}/refresh-token`,
-                { refreshToken }
-            );
-
-            this.setSession(response);
-            return true;
-        } catch (error) {
-            console.error('Token refresh failed:', error);
-            return false;
-        }
-    }
-
-    /**
-     * Logout method
-     */
+    // Logout method
     logout(): void {
-        // Clear token timer
-        if (this.tokenExpirationTimer !== null) {
-            window.clearTimeout(this.tokenExpirationTimer);
-            this.tokenExpirationTimer = null;
+        // Try to call logout API
+        const token = this.getToken();
+        if (token) {
+            try {
+                requestService.post('/auth/logout', { token }).catch(() => {
+                    // Ignore errors during logout
+                });
+            } catch (error) {
+                // Ignore errors
+            }
         }
 
-        // Clear auth data
-        localStorage.removeItem('token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('token_expires_at');
-        localStorage.removeItem('user');
-
-        // Clear token via RequestService
-        requestService.clearAuthToken();
+        // Clear token data
+        localStorage.removeItem(this.tokenKey);
+        localStorage.removeItem(this.refreshTokenKey);
+        localStorage.removeItem(this.expiresAtKey);
+        localStorage.removeItem(this.userKey);
 
         // Redirect to login page
         if (this.router) {
@@ -133,67 +73,53 @@ class AuthService {
         } else {
             window.location.href = '/login';
         }
-
-        // Add logout api call if needed
-        try {
-            requestService.post(`${this.AUTH_API_PATH}/logout`).catch(() => {
-                // Ignore errors during logout API call
-            });
-        } catch (error) {
-            // Ignore errors
-        }
     }
 
+    // Get the current user
     getCurrentUser(): User | null {
-        const userStr = localStorage.getItem('user');
-        if (userStr) {
-            try {
-                return JSON.parse(userStr);
-            } catch (e) {
-                return null;
-            }
+        try {
+            const userStr = localStorage.getItem(this.userKey);
+            return userStr ? JSON.parse(userStr) : null;
+        } catch (error) {
+            return null;
         }
-        return null;
     }
 
+    // Check if user is logged in
     isLoggedIn(): boolean {
-        const token = localStorage.getItem('token');
-        const expiresAt = Number(localStorage.getItem('token_expires_at') || '0');
+        const token = localStorage.getItem(this.tokenKey);
+        const expiresAt = Number(localStorage.getItem(this.expiresAtKey) || '0');
         const now = new Date().getTime();
 
-        // Only consider logged in if token exists and is not expired
         return !!token && expiresAt > now;
     }
 
+    // Get the auth token
     getToken(): string | null {
-        return localStorage.getItem('token');
+        return localStorage.getItem(this.tokenKey);
     }
 
+    // Validate the token with the server
     async validateToken(): Promise<User | null> {
         try {
             if (!this.isLoggedIn()) {
                 return null;
             }
 
-            // Check token expiration first
-            const expiresAt = Number(localStorage.getItem('token_expires_at') || '0');
-            const now = new Date().getTime();
-
-            // If token is about to expire, try to refresh it
-            if (expiresAt - now < 60000) {
-                const refreshed = await this.refreshToken();
-                if (!refreshed) {
-                    this.logout();
-                    return null;
-                }
+            const token = this.getToken();
+            if (!token) {
+                return null;
             }
 
-            // Validate token with server
-            const userData = await requestService.get<User>(`${this.AUTH_API_PATH}/validate`);
-            return userData;
-        } catch (error) {
-            // If token validation fails, clear token
-            this.logout();
+            const response = await requestService.post('/auth/validate', { token });
+            return response;
+        } catch (error: any) {
+            console.error('Token validation failed:', error);
+
+            if (!error.response || error.response.status !== 401) {
+                this.logout();
+            }
+
             return null;
         }
     }

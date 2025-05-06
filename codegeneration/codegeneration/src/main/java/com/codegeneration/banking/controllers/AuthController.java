@@ -2,11 +2,11 @@ package com.codegeneration.banking.controllers;
 
 import com.codegeneration.banking.api.dto.LoginRequest;
 import com.codegeneration.banking.api.dto.LoginResponse;
-import com.codegeneration.banking.api.dto.logout.LogoutRequest;
-import com.codegeneration.banking.api.dto.RegisterRequest;
 import com.codegeneration.banking.api.dto.UserDTO;
+import com.codegeneration.banking.api.dto.logout.LogoutRequest;
+import com.codegeneration.banking.api.dto.transaction.TransactionRequest;
+import com.codegeneration.banking.api.dto.RegisterRequest;
 import com.codegeneration.banking.api.service.AuthService;
-import com.codegeneration.banking.api.service.impl.AuthServiceImpl;
 import com.codegeneration.banking.api.security.JwtAuthenticationFilter;
 import com.codegeneration.banking.api.security.JwtTokenProvider;
 import io.swagger.v3.oas.annotations.Operation;
@@ -79,10 +79,19 @@ public class AuthController {
                     content = @Content(schema = @Schema(implementation = UserDTO.class))),
             @ApiResponse(responseCode = "401", description = "Invalid token")
     })
-    @GetMapping("/validate")
-    public ResponseEntity<UserDTO> validateToken(@RequestHeader("Authorization") String token) {
-        String actualToken = token.startsWith("Bearer ") ? token.substring(7) : token;
-        return ResponseEntity.ok(authService.validateToken(actualToken));
+    @PostMapping("/validate")
+    public ResponseEntity<UserDTO> validateToken(@Valid @RequestBody TransactionRequest request) {
+        String token = request.getToken();
+        if (token == null || token.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        UserDTO userDTO = authService.validateToken(token);
+        if (userDTO == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        return ResponseEntity.ok(userDTO);
     }
 
     @Operation(summary = "Register a new user", description = "Creates a new user account")
