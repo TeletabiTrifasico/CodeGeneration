@@ -6,17 +6,44 @@ export interface User {
     username: string;
     name: string;
     email: string;
+    role: UserRole;
+    enabled: boolean;
+    accounts: Account[];
 }
 
-// Transaction model
+export interface Account {
+    id: number;
+    accountNumber: string;
+    accountName: string;
+    accountType: string;
+    balance: number;
+    currency: string;
+    dailyTransferLimit: number;
+    dailyWithdrawalLimit: number;
+    singleTransferLimit: number;
+    singleWithdrawalLimit: number;
+    transferUsedToday: number;
+    withdrawalUsedToday: number;
+    lastLimitResetDate: Date;
+    user: User;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
 export interface Transaction {
     id: number;
-    date: string;
-    description: string;
+    transactionReference: string;
+    sourceAccount: Account;
+    destinationAccount: Account;
     amount: number;
-    category?: string;
-    reference?: string;
+    currency: Currency;
+    description: string;
+    transactionStatus: TransactionStatus;
+    transactionType: TransactionType;
+    createAt: Date;
+    completedAt: Date | null;
 }
+
 
 // Account model
 export interface Account {
@@ -41,5 +68,3 @@ export interface ApiError {
     message: string;
     details?: any;
 }
-
-export default Transaction;

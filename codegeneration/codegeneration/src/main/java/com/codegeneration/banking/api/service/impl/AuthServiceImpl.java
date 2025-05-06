@@ -5,6 +5,7 @@ import com.codegeneration.banking.api.dto.LoginResponse;
 import com.codegeneration.banking.api.dto.RegisterRequest;
 import com.codegeneration.banking.api.dto.UserDTO;
 import com.codegeneration.banking.api.entity.User;
+import com.codegeneration.banking.api.enums.UserRole;
 import com.codegeneration.banking.api.exception.ConflictException;
 import com.codegeneration.banking.api.exception.UnauthorizedException;
 import com.codegeneration.banking.api.repository.UserRepository;
@@ -98,7 +99,7 @@ public class AuthServiceImpl implements AuthService {
                 .name(registerRequest.getName())
                 .email(registerRequest.getEmail())
                 .password(passwordEncoder.encode(registerRequest.getPassword()))
-                .roles(List.of("ROLE_USER"))
+                .role(UserRole.CLIENT)
                 .enabled(true)
                 .build();
 

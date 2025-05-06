@@ -33,9 +33,8 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
-    private final AuthServiceImpl authServiceImpl;
-    private final JwtTokenProvider jwtTokenProvider; // Add this field
-    private final JwtAuthenticationFilter jwtAuthenticationFilter; // Add this field
+    private final JwtTokenProvider jwtTokenProvider;
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Operation(summary = "Login a user", description = "Authenticates a user and returns a JWT token")
     @ApiResponses(value = {
@@ -57,17 +56,14 @@ public class AuthController {
     })
     @PostMapping("/logout")
     public ResponseEntity<Map<String, String>> logout(HttpServletRequest request, @RequestBody(required = false) LogoutRequest logoutRequest) {
-        // Get token from Authorization header or request body
         String token;
         if (logoutRequest != null && logoutRequest.getToken() != null) {
             token = logoutRequest.getToken();
         } else {
-            token = jwtAuthenticationFilter.getJwtFromRequest(request); // Use instance method
+            token = jwtAuthenticationFilter.getJwtFromRequest(request);
         }
 
-        // Blacklist the token
         if (token != null) {
-            // Use the instance method, not static method
             jwtTokenProvider.blacklistToken(token);
         }
 
