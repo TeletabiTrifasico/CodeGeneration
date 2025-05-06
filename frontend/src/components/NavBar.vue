@@ -9,10 +9,8 @@ const user = ref(AuthService.getCurrentUser());
 const isMobileMenuOpen = ref(false);
 const route = useRoute();
 
-// Computed properties
 const currentRoute = computed(() => route.path);
 
-// Check authentication status periodically
 let authCheckInterval: number | null = null;
 
 // Toggle mobile menu
@@ -35,17 +33,14 @@ const handleLogout = () => {
 
 // Check authentication status periodically
 onMounted(() => {
-  // Initial check
   isLoggedIn.value = AuthService.isLoggedIn();
   user.value = AuthService.getCurrentUser();
 
-  // Setup regular checks (every 30 seconds)
   authCheckInterval = window.setInterval(() => {
     isLoggedIn.value = AuthService.isLoggedIn();
     user.value = AuthService.getCurrentUser();
   }, 30000);
 
-  // Add click event listener to close menu when clicking outside
   document.addEventListener('click', (event) => {
     const target = event.target as HTMLElement;
     const navbar = document.querySelector('.navbar');
@@ -55,7 +50,6 @@ onMounted(() => {
   });
 });
 
-// Cleanup on component unmount
 onUnmounted(() => {
   if (authCheckInterval !== null) {
     clearInterval(authCheckInterval);
@@ -68,7 +62,6 @@ onUnmounted(() => {
     <div class="navbar-container">
       <!-- Logo / Brand -->
       <router-link to="/" class="navbar-brand">
-        <span class="brand-icon">🏦</span>
         <span class="brand-name">Banking App</span>
       </router-link>
 

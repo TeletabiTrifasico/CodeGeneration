@@ -56,7 +56,6 @@ router.beforeEach(async (to, from, next) => {
     // Check if the route is for guests only (login, register)
     const guestOnly = to.matched.some(record => record.meta.guestOnly);
 
-    // Determine user authentication status
     const isAuthenticated = AuthService.isLoggedIn();
 
     // Logic for authenticated routes
@@ -80,6 +79,7 @@ router.beforeEach(async (to, from, next) => {
     // Logic for guest-only routes
     else if (guestOnly && isAuthenticated) {
         // Redirect to dashboard if trying to access login/register while authenticated
+        // TODO: Permission checks, if employee -> employee dashboard, else to regular dashboard
         next({ name: 'dashboard' });
     }
     // Allow access to public routes

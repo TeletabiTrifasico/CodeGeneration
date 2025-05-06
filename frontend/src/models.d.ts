@@ -1,6 +1,4 @@
-// Type definitions for the application's data models
 
-// User model
 export interface User {
     id: number;
     username: string;
@@ -42,29 +40,4 @@ export interface Transaction {
     transactionType: TransactionType;
     createAt: Date;
     completedAt: Date | null;
-}
-
-
-// Account model
-export interface Account {
-    id: number;
-    accountNumber: string;
-    type: string;
-    balance: number;
-    currency: string;
-}
-
-// Authentication response
-export interface LoginResponse {
-    token: string;
-    refreshToken: string;
-    user: User;
-    expiresIn: number;
-}
-
-// Error response
-export interface ApiError {
-    status: number;
-    message: string;
-    details?: any;
 }

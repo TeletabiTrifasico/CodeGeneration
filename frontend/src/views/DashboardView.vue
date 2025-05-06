@@ -1,43 +1,80 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import AuthService from '@/services/AuthService';
-import requestService from '@/services/RequestService';
+import AccountService from '@/services/AccountService';
+import TransactionService from "@/services/TransactionService";
+import { Account, Transaction, User } from '@/models';
 
-interface Transaction {
-  id: number;
-  date: string;
-  description: string;
-  amount: number;
-}
-
-// User reactive state
-const user = ref(AuthService.getCurrentUser());
-const accountBalance = ref(0);
+const user = ref<User | null>(AuthService.getCurrentUser());
+const accounts = ref<Account[]>([]);
+const selectedAccount = ref<Account | null>(null);
 const transactions = ref<Transaction[]>([]);
 const isLoading = ref(true);
 const error = ref('');
 
-// Computed properties
 const sortedTransactions = computed(() => {
-  return [...transactions.value].sort((a, b) =>
-      new Date(b.date).getTime() - new Date(a.date).getTime()
-  );
+  return [...transactions.value].sort((a, b) => {
+    const dateA = a.createAt instanceof Date ? a.createAt : new Date(a.createAt);
+    const dateB = b.createAt instanceof Date ? b.createAt : new Date(b.createAt);
+    return dateB.getTime() - dateA.getTime();
+  });
 });
 
-const formatCurrency = (amount: number): string => {
+const accountBalance = computed(() => {
+  if (selectedAccount.value) {
+    return selectedAccount.value.balance;
+  }
+
+  // If no account is selected, sum up all account balances
+  // TODO: Add exchange rates!
+  return accounts.value.reduce((total, account) => total + account.balance, 0);
+});
+
+const currentCurrency = computed(() => {
+  return selectedAccount.value?.currency || 'EUR';
+});
+
+const formatCurrency = (amount: number, currency: string): string => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD'
+    currency: currency,
   }).format(amount);
 };
 
-const formatDate = (dateString: string): string => {
-  const date = new Date(dateString);
+const formatDate = (date: Date | string): string => {
+  const dateObj = date instanceof Date ? date : new Date(date);
   return new Intl.DateTimeFormat('en-US', {
     year: 'numeric',
     month: 'short',
-    day: 'numeric'
-  }).format(date);
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  }).format(dateObj);
+};
+
+const fetchAccounts = async () => {
+  try {
+    const accountsData = await AccountService.getAllAccounts();
+    accounts.value = accountsData;
+  } catch (err: any) {
+    console.error('Error fetching accounts:', err);
+    throw new Error(err.message || 'Failed to load accounts');
+  }
+};
+
+const fetchTransactions = async () => {
+  try {
+    if (selectedAccount.value) {
+      transactions.value = await TransactionService.getTransactionsByAccount(
+          selectedAccount.value.accountNumber
+      );
+    } else {
+      transactions.value = await TransactionService.getAllTransactions();
+    }
+  } catch (err: any) {
+    console.error('Error fetching transactions:', err);
+    throw new Error(err.message || 'Failed to load transactions');
+  }
 };
 
 const fetchDashboardData = async () => {
@@ -45,28 +82,26 @@ const fetchDashboardData = async () => {
     isLoading.value = true;
     error.value = '';
 
-    // Simulate API call - in real app, you'd use:
-    // const balanceData = await requestService.get('/account/balance');
-    // const transactionsData = await requestService.get('/account/transactions');
+    // Fetch accounts first
+    await fetchAccounts();
 
-    // For demonstration, we'll use setTimeout
-    setTimeout(() => {
-      accountBalance.value = 2547.63;
-      transactions.value = [
-        { id: 1, date: '2025-04-18', description: 'Grocery Store', amount: -86.42 },
-        { id: 2, date: '2025-04-17', description: 'Salary Deposit', amount: 1500.00 },
-        { id: 3, date: '2025-04-15', description: 'Restaurant', amount: -42.75 },
-        { id: 4, date: '2025-04-12', description: 'Online Purchase', amount: -129.99 },
-        { id: 5, date: '2025-04-10', description: 'Utility Bill', amount: -85.50 },
-        { id: 6, date: '2025-04-05', description: 'Transfer from Savings', amount: 200.00 }
-      ];
-      isLoading.value = false;
-    }, 1000);
+    // Then fetch transactions
+    await fetchTransactions();
+
   } catch (err: any) {
     console.error('Error fetching dashboard data:', err);
-    isLoading.value = false;
     error.value = err.message || 'Failed to load dashboard data';
+  } finally {
+    isLoading.value = false;
   }
+};
+
+const selectAccount = (account: Account) => {
+  selectedAccount.value = account;
+};
+
+const viewAllAccounts = () => {
+  selectedAccount.value = null;
 };
 
 const refreshData = () => {
@@ -75,6 +110,69 @@ const refreshData = () => {
 
 const handleLogout = () => {
   AuthService.logout();
+};
+
+// Watch for changes to selectedAccount to refresh transactions
+watch(selectedAccount, () => {
+  fetchTransactions();
+});
+
+// Format a transaction's description for display
+const getTransactionDescription = (transaction: Transaction): string => {
+  const userAccountNumbers = accounts.value.map(acc => acc.accountNumber);
+
+  let isIncoming = userAccountNumbers.includes(transaction.destinationAccount.accountNumber) &&
+      !userAccountNumbers.includes(transaction.sourceAccount.accountNumber);
+
+  let isOutgoing = userAccountNumbers.includes(transaction.sourceAccount.accountNumber) &&
+      !userAccountNumbers.includes(transaction.destinationAccount.accountNumber);
+
+  let isInternal = userAccountNumbers.includes(transaction.sourceAccount.accountNumber) &&
+      userAccountNumbers.includes(transaction.destinationAccount.accountNumber);
+
+  if (isIncoming) {
+    return `From: ${transaction.sourceAccount.accountName} (${transaction.sourceAccount.accountNumber})`;
+  } else if (isOutgoing) {
+    return `To: ${transaction.destinationAccount.accountName} (${transaction.destinationAccount.accountNumber})`;
+  } else if (isInternal) {
+    return `Transfer: ${transaction.sourceAccount.accountName} → ${transaction.destinationAccount.accountName}`;
+  }
+
+  return transaction.description || 'Transaction';
+};
+
+// Determine if a transaction is positive or negative for display
+// TODO: Add minus if it's negative
+const isPositiveTransaction = (transaction: Transaction): boolean => {
+  const userAccountNumbers = accounts.value.map(acc => acc.accountNumber);
+
+  if (selectedAccount.value) {
+    // If a specific account is selected
+    if (transaction.destinationAccount.accountNumber === selectedAccount.value.accountNumber) {
+      return true; // Money coming in to this account
+    }
+    if (transaction.sourceAccount.accountNumber === selectedAccount.value.accountNumber) {
+      return false; // Money going out from this account
+    }
+  } else {
+    // If money coming in from external source
+    if (userAccountNumbers.includes(transaction.destinationAccount.accountNumber) &&
+        !userAccountNumbers.includes(transaction.sourceAccount.accountNumber)) {
+      return true;
+    }
+    // If money going out to external destination
+    if (userAccountNumbers.includes(transaction.sourceAccount.accountNumber) &&
+        !userAccountNumbers.includes(transaction.destinationAccount.accountNumber)) {
+      return false;
+    }
+    // If internal transfer, it's neutral (but we'll show as positive)
+    if (userAccountNumbers.includes(transaction.sourceAccount.accountNumber) &&
+        userAccountNumbers.includes(transaction.destinationAccount.accountNumber)) {
+      return true;
+    }
+  }
+
+  return true;
 };
 
 onMounted(() => {
@@ -117,19 +215,63 @@ onMounted(() => {
     </div>
 
     <div v-else class="dashboard-content">
+      <!-- Account Selection Panel -->
+      <div class="accounts-panel">
+        <div class="accounts-header">
+          <h2>Your Accounts</h2>
+          <button
+              v-if="selectedAccount"
+              @click="viewAllAccounts"
+              class="view-all-button"
+          >
+            View All
+          </button>
+        </div>
+
+        <div v-if="isLoading" class="card-loading">
+          <div v-for="i in 3" :key="i" class="skeleton-loader account-skeleton"></div>
+        </div>
+        <div v-else-if="accounts.length === 0" class="no-data">
+          No accounts found.
+        </div>
+        <ul v-else class="accounts-list">
+          <li
+              v-for="account in accounts"
+              :key="account.id"
+              class="account-item"
+              :class="{ 'selected': selectedAccount && selectedAccount.id === account.id }"
+              @click="selectAccount(account)"
+          >
+            <div class="account-info">
+              <span class="account-name">{{ account.accountName }}</span>
+              <span class="account-number">{{ account.accountNumber }}</span>
+              <span class="account-type">{{ account.accountType }}</span>
+            </div>
+            <span class="account-balance">
+              {{ formatCurrency(account.balance, account.currency) }}
+            </span>
+          </li>
+        </ul>
+      </div>
+
       <div class="dashboard-summary">
         <!-- Account balance card -->
         <div class="summary-card balance-card">
-          <h2>Account Balance</h2>
+          <h2>{{ selectedAccount ? selectedAccount.accountName : 'Total Balance' }}</h2>
           <div v-if="isLoading" class="card-loading">
             <div class="skeleton-loader balance-skeleton"></div>
           </div>
-          <p v-else class="balance">{{ formatCurrency(accountBalance) }}</p>
+          <p v-else class="balance">{{ formatCurrency(accountBalance, currentCurrency) }}</p>
+          <p v-if="selectedAccount" class="account-number-display">
+            Account: {{ selectedAccount.accountNumber }}
+          </p>
         </div>
 
         <!-- Recent transactions card -->
         <div class="summary-card transactions-card">
-          <h2>Recent Transactions</h2>
+          <h2>
+            {{ selectedAccount ? 'Account Transactions' : 'Recent Transactions' }}
+          </h2>
           <div v-if="isLoading" class="card-loading">
             <div v-for="i in 4" :key="i" class="skeleton-loader transaction-skeleton">
               <div class="skeleton-line"></div>
@@ -137,16 +279,18 @@ onMounted(() => {
             </div>
           </div>
           <div v-else-if="transactions.length === 0" class="no-data">
-            No recent transactions found.
+            No transactions found.
           </div>
           <ul v-else class="transaction-list">
             <li v-for="transaction in sortedTransactions" :key="transaction.id" class="transaction-item">
               <div class="transaction-info">
-                <span class="transaction-date">{{ formatDate(transaction.date) }}</span>
-                <span class="transaction-description">{{ transaction.description }}</span>
+                <span class="transaction-date">{{ formatDate(transaction.createAt) }}</span>
+                <span class="transaction-description">{{ getTransactionDescription(transaction) }}</span>
+                <span class="transaction-details">{{ transaction.description }}</span>
+                <span class="transaction-status">{{ transaction.transactionStatus }}</span>
               </div>
-              <span class="transaction-amount" :class="transaction.amount < 0 ? 'negative' : 'positive'">
-                {{ formatCurrency(transaction.amount) }}
+              <span class="transaction-amount" :class="isPositiveTransaction(transaction) ? 'positive' : 'negative'">
+                {{ formatCurrency(transaction.amount, transaction.currency) }}
               </span>
             </li>
           </ul>
@@ -201,7 +345,7 @@ h1 {
   gap: 15px;
 }
 
-.refresh-button, .logout-button {
+.refresh-button, .logout-button, .view-all-button {
   padding: 10px 15px;
   border-radius: 8px;
   font-weight: 500;
@@ -212,13 +356,13 @@ h1 {
   gap: 8px;
 }
 
-.refresh-button {
+.refresh-button, .view-all-button {
   background-color: #f5f5f5;
   color: #333;
   border: 1px solid #ddd;
 }
 
-.refresh-button:hover:not(:disabled) {
+.refresh-button:hover:not(:disabled), .view-all-button:hover {
   background-color: #e8e8e8;
 }
 
@@ -281,6 +425,101 @@ h1 {
   to { opacity: 1; }
 }
 
+/* Accounts Panel */
+.accounts-panel {
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+  padding: 25px;
+  margin-bottom: 30px;
+  transition: all 0.3s ease;
+}
+
+.accounts-panel:hover {
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.accounts-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.accounts-header h2 {
+  font-size: 1.4rem;
+  color: #555;
+  margin: 0;
+}
+
+.accounts-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.account-item {
+  flex: 1;
+  min-width: 250px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  padding: 15px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.account-item:hover {
+  background-color: #f0f0f0;
+  transform: translateY(-3px);
+}
+
+.account-item.selected {
+  border-color: #4CAF50;
+  background-color: #f0f8f0;
+}
+
+.account-info {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 10px;
+}
+
+.account-name {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.account-number {
+  font-size: 0.9rem;
+  color: #777;
+  margin-top: 4px;
+}
+
+.account-type {
+  font-size: 0.8rem;
+  color: #999;
+  margin-top: 2px;
+  font-style: italic;
+}
+
+.account-balance {
+  display: block;
+  font-weight: 600;
+  font-size: 1.2rem;
+  color: #4CAF50;
+  margin-top: 5px;
+}
+
+.account-skeleton {
+  height: 80px;
+  margin-bottom: 15px;
+}
+
 .dashboard-summary {
   display: grid;
   grid-template-columns: 1fr 2fr;
@@ -316,6 +555,12 @@ h1 {
   font-weight: bold;
   color: #4CAF50;
   margin: 0;
+}
+
+.account-number-display {
+  font-size: 1rem;
+  color: #777;
+  margin-top: 10px;
 }
 
 .skeleton-loader {
@@ -406,7 +651,7 @@ h1 {
 }
 
 .transaction-date {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: #888;
 }
 
@@ -414,6 +659,19 @@ h1 {
   margin-top: 6px;
   font-size: 1.05rem;
   font-weight: 500;
+}
+
+.transaction-details {
+  font-size: 0.85rem;
+  color: #777;
+  margin-top: 4px;
+}
+
+.transaction-status {
+  font-size: 0.8rem;
+  color: #555;
+  margin-top: 3px;
+  font-style: italic;
 }
 
 .transaction-amount {
@@ -566,6 +824,14 @@ h1 {
 
   .action-button {
     padding: 15px;
+  }
+
+  .accounts-list {
+    flex-direction: column;
+  }
+
+  .account-item {
+    min-width: auto;
   }
 }
 </style>
