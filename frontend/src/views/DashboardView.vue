@@ -29,7 +29,7 @@ export default defineComponent({
             { id: 4, date: '2025-04-12', description: 'Online Purchase', amount: -129.99 }
           ];
           isLoading.value = false;
-        }, 0); // now we got 0 delay :))))
+        }, 0);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
         isLoading.value = false;
