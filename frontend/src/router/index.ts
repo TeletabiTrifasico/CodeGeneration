@@ -3,6 +3,7 @@ import HomeView from '../views/HomeView.vue';
 import LoginView from '../views/LoginView.vue';
 import RegisterView from '@/views/RegisterView.vue';
 import AuthService from '@/services/AuthService';
+import EmployeeView from '@/views/EmployeeView.vue';
 
 const routes: Array<RouteRecordRaw> = [
     {
@@ -27,6 +28,12 @@ const routes: Array<RouteRecordRaw> = [
         name: 'dashboard',
         // Lazy-loading the dashboard component
         component: () => import('../views/DashboardView.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/employeePanel',
+        name: 'employeePanel',
+        component: EmployeeView,
         meta: { requiresAuth: true }
     },
     {

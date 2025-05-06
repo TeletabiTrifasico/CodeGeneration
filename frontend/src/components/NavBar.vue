@@ -90,6 +90,9 @@ onUnmounted(() => {
             <router-link to="/dashboard" class="nav-link" :class="{ 'active': currentRoute === '/dashboard' }" @click="closeMobileMenu">
               Dashboard
             </router-link>
+            <router-link v-if="user.role == 'EMPLOYEE'" to="/employeePanel" class="nav-link" :class="{ 'active': currentRoute === '/dashboard' }" @click="closeMobileMenu">
+              Employee Panel
+            </router-link>
             <a href="#" class="nav-link logout-link" @click.prevent="handleLogout">
               Logout
             </a>
