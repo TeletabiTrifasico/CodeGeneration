@@ -39,7 +39,7 @@ public class Transaction {
     private Account destinationAccount;
 
     @Column(nullable = false, precision = 19, scale = 4)
-    private BigDecimal amount;
+    private BigDecimal amount; // Change to numeric, look in the H2 documentation
 
     @Column(nullable = false)
     private Currency currency = Currency.EUR;
@@ -47,6 +47,7 @@ public class Transaction {
     @Column(length = 500)
     private String description;
 
+    // Remove transaction status
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     private TransactionStatus status;
@@ -81,6 +82,6 @@ public class Transaction {
         TRANSFER,
         DEPOSIT,
         WITHDRAWAL,
-        PAYMENT
+        PAYMENT // Remove
     }
 }
