@@ -44,6 +44,12 @@ export const API_ENDPOINTS = {
     transaction: {
         getAll: '/transaction/getall', // GET with Authorization header
         byAccount: (accountNumber: string) => `/transaction/byaccount/${accountNumber}` // GET with Authorization header
+    },
+    
+    // ATM endpoints
+    atm: {
+        deposit: '/atm/deposit', // POST 
+        withdraw: '/atm/withdraw' // POST
     }
 };
 

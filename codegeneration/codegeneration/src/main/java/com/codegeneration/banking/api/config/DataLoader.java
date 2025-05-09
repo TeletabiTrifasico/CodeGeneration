@@ -210,7 +210,7 @@ public class DataLoader implements CommandLineRunner {
                 .currency(Currency.EUR)
                 .description("Salary deposit")
                 .status(Transaction.TransactionStatus.COMPLETED)
-                .type(Transaction.TransactionType.DEPOSIT)
+                .type(Transaction.TransactionType.ATM_DEPOSIT)
                 .createdAt(lastWeek.plusDays(2))
                 .completedAt(lastWeek.plusDays(2).plusMinutes(5))
                 .build();
@@ -224,7 +224,7 @@ public class DataLoader implements CommandLineRunner {
                 .currency(Currency.EUR)
                 .description("ATM Withdrawal")
                 .status(Transaction.TransactionStatus.COMPLETED)
-                .type(Transaction.TransactionType.WITHDRAWAL)
+                .type(Transaction.TransactionType.ATM_WITHDRAWAL)
                 .createdAt(yesterday.minusDays(1))
                 .completedAt(yesterday.minusDays(1).plusSeconds(30))
                 .build();

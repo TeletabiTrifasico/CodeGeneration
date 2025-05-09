@@ -4,6 +4,7 @@ import LoginView from '../views/LoginView.vue';
 import RegisterView from '@/views/RegisterView.vue';
 import { useAuthStore } from '@/stores/auth.store';
 import EmployeeView from '@/views/EmployeeView.vue';
+import AtmView from '@/views/AtmView.vue';
 
 const routes: Array<RouteRecordRaw> = [
     {
@@ -28,6 +29,12 @@ const routes: Array<RouteRecordRaw> = [
         name: 'dashboard',
         // Lazy-loading the dashboard component
         component: () => import('../views/DashboardView.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/atm',
+        name: 'atm',
+        component: AtmView,
         meta: { requiresAuth: true }
     },
     {

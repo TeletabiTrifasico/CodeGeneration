@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
-import AuthService from '@/services/AuthService';
+import { useAuthStore } from '@/stores/auth.store';
 import requestService from '@/services/RequestService';
 import EmployeeUsers from '../components/EmployeeUsers.vue'; // Make sure this path is correct
 import EmployeeDefault from '../components/EmployeeDefault.vue'; // Make sure this path is correct
 
+const authStore = useAuthStore();
 
 
 // User reactive state
-const user = ref(AuthService.getCurrentUser());
+const user = ref(authStore.currentUser);
 const isLoading = ref(true);
 const error = ref('');
 const currentPanel = ref('default');

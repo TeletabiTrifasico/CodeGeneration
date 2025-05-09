@@ -94,9 +94,10 @@ public class Transaction {
     }
 
     public enum TransactionType {
-        TRANSFER,
-        DEPOSIT,
-        WITHDRAWAL,
+        TRANSFER,        // Money transfer between accounts
+        ATM_WITHDRAWAL,  // ATM withdrawal
+        ATM_DEPOSIT,      // ATM deposit
         PAYMENT // Remove
+
     }
 }

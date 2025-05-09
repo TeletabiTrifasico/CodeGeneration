@@ -85,6 +85,13 @@ const handleLogout = () => {
 const getTransactionDescription = (transaction: Transaction): string => {
   const userAccountNumbers = accounts.value.map(acc => acc.accountNumber);
 
+  // Check if it's an ATM deposit or withdrawal first
+  if (transaction.transactionType === 'ATM_DEPOSIT') {
+    return `ATM Deposit`;
+  } else if (transaction.transactionType === 'ATM_WITHDRAWAL') {
+    return `ATM Withdrawal`;
+  }
+
   let isIncoming = userAccountNumbers.includes(transaction.destinationAccount.accountNumber) &&
       !userAccountNumbers.includes(transaction.sourceAccount.accountNumber);
 
@@ -267,6 +274,10 @@ onMounted(async () => {
 
       <!-- Quick actions panel -->
       <div class="dashboard-actions">
+        <router-link to="/atm" class="action-button">
+          <span class="action-icon">🏧</span>
+          ATM Access
+        </router-link>
         <button class="action-button">
           <span class="action-icon">↗</span>
           Transfer Money
