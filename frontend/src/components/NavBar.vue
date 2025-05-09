@@ -1,46 +1,50 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
-import AuthService from '@/services/AuthService';
+import { useAuthStore } from '@/stores/auth.store';
 
-// Reactive state
-const isLoggedIn = ref(AuthService.isLoggedIn());
-const user = ref(AuthService.getCurrentUser());
+const authStore = useAuthStore();
+
 const isMobileMenuOpen = ref(false);
 const route = useRoute();
 
+const isLoggedIn = computed(() => authStore.isLoggedIn);
+const user = computed(() => authStore.currentUser);
 const currentRoute = computed(() => route.path);
 
 let authCheckInterval: number | null = null;
 
-// Toggle mobile menu
 const toggleMobileMenu = () => {
   isMobileMenuOpen.value = !isMobileMenuOpen.value;
 };
 
-// Close mobile menu when clicking outside
+
 const closeMobileMenu = () => {
   isMobileMenuOpen.value = false;
 };
 
-// Handle logout
+
 const handleLogout = () => {
-  AuthService.logout();
-  isLoggedIn.value = false;
-  user.value = null;
+  authStore.logout();
   closeMobileMenu();
 };
 
 // Check authentication status periodically
 onMounted(() => {
-  isLoggedIn.value = AuthService.isLoggedIn();
-  user.value = AuthService.getCurrentUser();
-
+  // Set up interval to periodically check token validity
   authCheckInterval = window.setInterval(() => {
-    isLoggedIn.value = AuthService.isLoggedIn();
-    user.value = AuthService.getCurrentUser();
+
+    // We don't need to update local refs anymore, as they're computed from the store
+    // Just check if token needs refreshing
+    if (isLoggedIn.value) {
+      authStore.validateToken().catch(() => {
+        // Token validation errors are handled in the store
+        console.log('Token validation check failed');
+      });
+    }
   }, 30000);
 
+  // Close mobile menu when clicking outside
   document.addEventListener('click', (event) => {
     const target = event.target as HTMLElement;
     const navbar = document.querySelector('.navbar');
@@ -60,7 +64,6 @@ onUnmounted(() => {
 <template>
   <nav class="navbar">
     <div class="navbar-container">
-      <!-- Logo / Brand -->
       <router-link to="/" class="navbar-brand">
         <span class="brand-name">Banking App</span>
       </router-link>

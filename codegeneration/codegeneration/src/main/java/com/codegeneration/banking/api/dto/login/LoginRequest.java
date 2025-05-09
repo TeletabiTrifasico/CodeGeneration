@@ -1,4 +1,4 @@
-package com.codegeneration.banking.api.dto;
+package com.codegeneration.banking.api.dto.login;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;

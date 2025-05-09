@@ -1,5 +1,6 @@
-import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
-import AuthService from './AuthService';
+﻿import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
+import { useAuthStore } from '@/stores/auth.store';
+import { API_BASE_URL } from './api.config';
 
 // Flag to prevent multiple simultaneous token refresh requests
 let isRefreshing = false;
@@ -24,8 +25,9 @@ const onRefreshError = (error: any) => {
     return Promise.reject(error);
 };
 
+// Create axios instance with baseURL
 const apiClient = axios.create({
-    baseURL: 'http://localhost:8080/api',
+    baseURL: API_BASE_URL,
     headers: {
         'Content-Type': 'application/json'
     },
@@ -35,10 +37,13 @@ const apiClient = axios.create({
 // Add request interceptor
 apiClient.interceptors.request.use(
     (config) => {
-        const token = AuthService.getToken();
-        if (token && config.headers) {
-            config.headers['Authorization'] = `Bearer ${token}`;
+        // Get the store instance in the interceptor context
+        const authStore = useAuthStore();
+
+        if (authStore.authToken && config.headers) {
+            config.headers['Authorization'] = `Bearer ${authStore.authToken}`;
         }
+
         return config;
     },
     (error) => {
@@ -58,7 +63,7 @@ apiClient.interceptors.response.use(
         if (error.response?.status === 401 && !originalRequest._retry) {
             if (isRefreshing) {
                 // If already refreshing, add to queue
-                return new Promise<string>(resolve => {
+                return new Promise<string>((resolve) => {
                     subscribeTokenRefresh((token: string) => {
                         if (token && originalRequest.headers) {
                             originalRequest.headers['Authorization'] = `Bearer ${token}`;
@@ -74,10 +79,11 @@ apiClient.interceptors.response.use(
 
             try {
                 // Try to refresh token
-                const refreshed = await AuthService.refreshToken();
+                const authStore = useAuthStore();
+                const refreshed = await authStore.refreshToken();
 
                 if (refreshed) {
-                    const newToken = AuthService.getToken() || '';
+                    const newToken = authStore.authToken || '';
 
                     // Process queue
                     onTokenRefreshed(newToken);
@@ -93,14 +99,17 @@ apiClient.interceptors.response.use(
                     // If refresh failed
                     isRefreshing = false;
                     onRefreshError(error);
-                    AuthService.logout();
+                    authStore.logout();
                     return Promise.reject(error);
                 }
             } catch (refreshError) {
                 // If refresh throws an error
                 isRefreshing = false;
                 onRefreshError(refreshError);
-                AuthService.logout();
+
+                const authStore = useAuthStore();
+                authStore.logout();
+
                 return Promise.reject(refreshError);
             }
         }

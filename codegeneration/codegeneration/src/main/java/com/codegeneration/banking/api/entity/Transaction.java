@@ -17,7 +17,21 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "transactions")
+@Table(
+        name = "transactions",
+        indexes = {
+                @Index(name = "idx_transaction_reference", columnList = "transactionReference"),
+                @Index(name = "idx_transaction_source", columnList = "source_account_id"),
+                @Index(name = "idx_transaction_destination", columnList = "destination_account_id"),
+                @Index(name = "idx_transaction_status", columnList = "status"),
+                @Index(name = "idx_transaction_type", columnList = "type"),
+                @Index(name = "idx_transaction_created", columnList = "createdAt"),
+                @Index(name = "idx_transaction_completed", columnList = "completedAt"),
+                // Composite indexes for common queries
+                @Index(name = "idx_transaction_account_created", columnList = "source_account_id,createdAt"),
+                @Index(name = "idx_transaction_dest_created", columnList = "destination_account_id,createdAt")
+        }
+)
 @Data
 @Builder
 @AllArgsConstructor
@@ -38,6 +52,7 @@ public class Transaction {
     @JoinColumn(name = "destination_account_id", nullable = false)
     private Account destinationAccount;
 
+    // BigDecimal is translated into NUMERIC(19, 4) which is suitable for most currency use cases.
     @Column(nullable = false, precision = 19, scale = 4)
     private BigDecimal amount;
 

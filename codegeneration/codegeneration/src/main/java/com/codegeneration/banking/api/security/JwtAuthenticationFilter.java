@@ -1,6 +1,6 @@
 package com.codegeneration.banking.api.security;
 
-import com.codegeneration.banking.api.service.CustomUserDetailsService;
+import com.codegeneration.banking.api.service.implementations.CustomUserDetailsService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -50,7 +50,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    public static String getJwtFromRequest(HttpServletRequest request) {
+    public String getJwtFromRequest(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
             return bearerToken.substring(7);

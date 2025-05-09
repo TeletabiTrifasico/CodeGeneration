@@ -1,4 +1,4 @@
-package com.codegeneration.banking.api.dto;
+package com.codegeneration.banking.api.dto.register;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;

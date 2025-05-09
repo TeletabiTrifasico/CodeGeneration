@@ -2,7 +2,7 @@ import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
 import HomeView from '../views/HomeView.vue';
 import LoginView from '../views/LoginView.vue';
 import RegisterView from '@/views/RegisterView.vue';
-import AuthService from '@/services/AuthService';
+import { useAuthStore } from '@/stores/auth.store';
 
 const routes: Array<RouteRecordRaw> = [
     {
@@ -49,14 +49,16 @@ router.beforeEach(async (to, from, next) => {
     // Check if the route is for guests only (login, register)
     const guestOnly = to.matched.some(record => record.meta.guestOnly);
 
-    const isAuthenticated = AuthService.isLoggedIn();
+    // Get auth store
+    const authStore = useAuthStore();
+    const isAuthenticated = authStore.isLoggedIn;
 
     // Logic for authenticated routes
     if (requiresAuth) {
         if (isAuthenticated) {
             // Validate token on sensitive routes
             try {
-                await AuthService.validateToken();
+                await authStore.validateToken();
                 next();
             } catch (error) {
                 next({ name: 'login' });
@@ -80,8 +82,5 @@ router.beforeEach(async (to, from, next) => {
         next();
     }
 });
-
-// Initialize AuthService with the router
-AuthService.setRouter(router);
 
 export default router;

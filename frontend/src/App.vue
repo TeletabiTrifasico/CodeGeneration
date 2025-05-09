@@ -2,17 +2,15 @@
 import { onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import NavBar from './components/NavBar.vue'; // Make sure this path is correct
-import AuthService from './services/AuthService';
+import { useAuthStore } from './stores/auth.store';
 
 const router = useRouter();
+const authStore = useAuthStore();
 
 onMounted(() => {
-  // Initialize AuthService with router for redirects
-  AuthService.setRouter(router);
-
   // Check if token is valid on application start
-  if (AuthService.isLoggedIn()) {
-    AuthService.validateToken()
+  if (authStore.isLoggedIn) {
+    authStore.validateToken()
         .catch(() => {
           // Token validation failed, will redirect in the validateToken method
           console.log('Token validation failed on app start');

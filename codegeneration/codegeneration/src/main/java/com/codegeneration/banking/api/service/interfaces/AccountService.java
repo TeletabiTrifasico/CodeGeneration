@@ -1,4 +1,4 @@
-package com.codegeneration.banking.api.service.account;
+package com.codegeneration.banking.api.service.interfaces;
 
 import com.codegeneration.banking.api.entity.Account;
 import com.codegeneration.banking.api.entity.User;

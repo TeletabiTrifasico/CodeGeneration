@@ -1,16 +1,17 @@
-package com.codegeneration.banking.api.service.impl;
+package com.codegeneration.banking.api.service.implementations;
 
-import com.codegeneration.banking.api.dto.LoginRequest;
-import com.codegeneration.banking.api.dto.LoginResponse;
-import com.codegeneration.banking.api.dto.RegisterRequest;
-import com.codegeneration.banking.api.dto.UserDTO;
+import com.codegeneration.banking.api.dto.login.LoginRequest;
+import com.codegeneration.banking.api.dto.login.LoginResponse;
+import com.codegeneration.banking.api.dto.register.RegisterRequest;
+import com.codegeneration.banking.api.dto.login.UserDTO;
 import com.codegeneration.banking.api.entity.User;
 import com.codegeneration.banking.api.enums.UserRole;
 import com.codegeneration.banking.api.exception.ConflictException;
+import com.codegeneration.banking.api.exception.ResourceNotFoundException;
 import com.codegeneration.banking.api.exception.UnauthorizedException;
 import com.codegeneration.banking.api.repository.UserRepository;
 import com.codegeneration.banking.api.security.JwtTokenProvider;
-import com.codegeneration.banking.api.service.AuthService;
+import com.codegeneration.banking.api.service.interfaces.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -50,15 +51,13 @@ public class AuthServiceImpl implements AuthService {
                     .orElseThrow(() -> new UnauthorizedException("User not found after authentication"));
 
             String token = jwtTokenProvider.generateToken(authentication);
-
-            List<String> roles = userDetails.getAuthorities().stream()
-                    .map(GrantedAuthority::getAuthority)
-                    .collect(Collectors.toList());
+            String refreshToken = "refresh-token-placeholder"; // Implement refresh token?
 
             UserDTO userDTO = UserDTO.fromEntity(user);
 
             return LoginResponse.builder()
                     .token(token)
+                    .refreshToken(refreshToken)
                     .user(userDTO)
                     .expiresIn(jwtTokenProvider.getExpirationTime())
                     .build();
@@ -69,13 +68,11 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public UserDTO validateToken(String token) {
-
         if (!jwtTokenProvider.validateToken(token)) {
             throw new UnauthorizedException("Invalid token");
         }
 
         String username = jwtTokenProvider.getUsernameFromToken(token);
-        List<String> roles = jwtTokenProvider.getRolesFromToken(token);
 
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UnauthorizedException("User not found"));
@@ -106,5 +103,13 @@ public class AuthServiceImpl implements AuthService {
         User savedUser = userRepository.save(newUser);
 
         return UserDTO.fromEntity(savedUser);
+    }
+
+    @Override
+    public UserDTO getUserInfo(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with username: " + username));
+
+        return UserDTO.fromEntity(user);
     }
 }

@@ -1,6 +1,6 @@
 package com.codegeneration.banking.api.security;
 
-import com.codegeneration.banking.api.service.tokenblacklistservice.TokenBlacklistService;
+import com.codegeneration.banking.api.service.implementations.TokenBlacklistService;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
@@ -11,7 +11,6 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
-import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;

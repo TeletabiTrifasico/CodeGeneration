@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue';
 import { useRouter } from 'vue-router';
-import requestService from '@/services/RequestService';
+import apiClient from '@/services/http.interceptor';
 
 const router = useRouter();
 
@@ -82,7 +82,7 @@ const submitForm = async () => {
     };
 
     // Send POST request to the register API endpoint with form data
-    await requestService.post('/auth/register', payload);
+    await apiClient.post('/auth/register', payload);
 
     // If successful, set a success message
     successMessage.value = 'Registration successful! You can now log in.';
