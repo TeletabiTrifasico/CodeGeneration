@@ -1,5 +1,6 @@
 package com.codegeneration.banking.controllers;
 
+import com.codegeneration.banking.api.dto.UsernameRequest;
 import com.codegeneration.banking.api.dto.account.AccountDTO;
 import com.codegeneration.banking.api.dto.account.AccountResponse;
 import com.codegeneration.banking.api.dto.transaction.TransactionRequest;
@@ -7,6 +8,7 @@ import com.codegeneration.banking.api.entity.Account;
 import com.codegeneration.banking.api.security.JwtTokenProvider;
 import com.codegeneration.banking.api.service.account.AccountService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -17,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -75,4 +78,23 @@ public class AccountController {
 
         return ResponseEntity.ok(accountDTO);
     }
+
+    @Operation(summary = "Get specific account IBAN by username", description = "Returns the IBAN numbers for a given user")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved IBANs",
+                    content = @Content(array = @ArraySchema(schema = @Schema(type = "string")))),
+            @ApiResponse(responseCode = "401", description = "Invalid username"),
+            @ApiResponse(responseCode = "500", description = "Internal server error!!")
+    })
+    @PostMapping("/getIBANByUsername")
+    public ResponseEntity<List<String>> getIBANByUsername(@Valid @RequestBody UsernameRequest request) {
+        List<String> response = new ArrayList<>();
+        String username = request.getUsername();
+        List<Account> accounts = accountService.getAccountsByUsername(username);
+        for (Account account : accounts) {
+            response.add(account.getAccountNumber());
+        }
+        return ResponseEntity.ok(response);
+    }
+
 }
