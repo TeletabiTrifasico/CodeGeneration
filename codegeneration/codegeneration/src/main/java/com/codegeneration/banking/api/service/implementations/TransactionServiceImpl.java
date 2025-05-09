@@ -1,10 +1,10 @@
-package com.codegeneration.banking.api.service.transaction.impl;
+package com.codegeneration.banking.api.service.implementations;
 
 import com.codegeneration.banking.api.entity.Account;
 import com.codegeneration.banking.api.entity.Transaction;
 import com.codegeneration.banking.api.repository.AccountRepository;
 import com.codegeneration.banking.api.repository.TransactionRepository;
-import com.codegeneration.banking.api.service.transaction.TransactionService;
+import com.codegeneration.banking.api.service.interfaces.TransactionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

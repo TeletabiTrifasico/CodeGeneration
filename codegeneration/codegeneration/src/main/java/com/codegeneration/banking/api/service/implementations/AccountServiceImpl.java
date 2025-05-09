@@ -1,11 +1,11 @@
-package com.codegeneration.banking.api.service.account.impl;
+package com.codegeneration.banking.api.service.implementations;
 
 import com.codegeneration.banking.api.entity.Account;
 import com.codegeneration.banking.api.entity.User;
 import com.codegeneration.banking.api.exception.ResourceNotFoundException;
 import com.codegeneration.banking.api.repository.AccountRepository;
 import com.codegeneration.banking.api.repository.UserRepository;
-import com.codegeneration.banking.api.service.account.AccountService;
+import com.codegeneration.banking.api.service.interfaces.AccountService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,7 +17,6 @@ import java.util.List;
 public class AccountServiceImpl implements AccountService {
 
     private final AccountRepository accountRepository;
-    private final UserRepository userRepository;
 
     @Override
     @Transactional(readOnly = true)

@@ -1,4 +1,4 @@
-package com.codegeneration.banking.api.dto;
+package com.codegeneration.banking.api.dto.login;
 
 import com.codegeneration.banking.api.entity.User;
 import com.codegeneration.banking.api.enums.UserRole;
@@ -7,8 +7,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.util.List;
 
 @Data
 @Builder

@@ -1,39 +1,29 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue';
-import AuthService from '@/services/AuthService';
-import AccountService from '@/services/AccountService';
-import TransactionService from "@/services/TransactionService";
-import { Account, Transaction, User } from '@/models';
+import { ref, computed, onMounted, watch } from 'vue';
+import { useAuthStore } from '@/stores/auth.store';
+import { useAccountStore } from '@/stores/account.store';
+import { useTransactionStore } from '@/stores/transaction.store';
+import { Account, Transaction } from '@/models';
 
-const user = ref<User | null>(AuthService.getCurrentUser());
-const accounts = ref<Account[]>([]);
-const selectedAccount = ref<Account | null>(null);
-const transactions = ref<Transaction[]>([]);
+// Get the stores
+const authStore = useAuthStore();
+const accountStore = useAccountStore();
+const transactionStore = useTransactionStore();
+
+// Local state for UI handling
 const isLoading = ref(true);
 const error = ref('');
 
-const sortedTransactions = computed(() => {
-  return [...transactions.value].sort((a, b) => {
-    const dateA = a.createAt instanceof Date ? a.createAt : new Date(a.createAt);
-    const dateB = b.createAt instanceof Date ? b.createAt : new Date(b.createAt);
-    return dateB.getTime() - dateA.getTime();
-  });
-});
+// Get sorted transactions from store
+const sortedTransactions = computed(() => transactionStore.sortedTransactions);
 
-const accountBalance = computed(() => {
-  if (selectedAccount.value) {
-    return selectedAccount.value.balance;
-  }
+// Get account data from stores
+const accounts = computed(() => accountStore.allAccounts);
+const selectedAccount = computed(() => accountStore.currentAccount);
+const accountBalance = computed(() => accountStore.accountBalance);
+const currentCurrency = computed(() => accountStore.currentCurrency);
 
-  // If no account is selected, sum up all account balances
-  // TODO: Add exchange rates!
-  return accounts.value.reduce((total, account) => total + account.balance, 0);
-});
-
-const currentCurrency = computed(() => {
-  return selectedAccount.value?.currency || 'EUR';
-});
-
+// Format helpers
 const formatCurrency = (amount: number, currency: string): string => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -52,42 +42,21 @@ const formatDate = (date: Date | string): string => {
   }).format(dateObj);
 };
 
-const fetchAccounts = async () => {
-  try {
-    const accountsData = await AccountService.getAllAccounts();
-    accounts.value = accountsData;
-  } catch (err: any) {
-    console.error('Error fetching accounts:', err);
-    throw new Error(err.message || 'Failed to load accounts');
-  }
-};
-
-const fetchTransactions = async () => {
-  try {
-    if (selectedAccount.value) {
-      transactions.value = await TransactionService.getTransactionsByAccount(
-          selectedAccount.value.accountNumber
-      );
-    } else {
-      transactions.value = await TransactionService.getAllTransactions();
-    }
-  } catch (err: any) {
-    console.error('Error fetching transactions:', err);
-    throw new Error(err.message || 'Failed to load transactions');
-  }
-};
-
+// Dashboard actions
 const fetchDashboardData = async () => {
   try {
     isLoading.value = true;
     error.value = '';
 
     // Fetch accounts first
-    await fetchAccounts();
+    await accountStore.fetchAllAccounts();
 
-    // Then fetch transactions
-    await fetchTransactions();
-
+    // Then fetch transactions based on selected account
+    if (selectedAccount.value) {
+      await transactionStore.fetchTransactionsByAccount(selectedAccount.value.accountNumber);
+    } else {
+      await transactionStore.fetchAllTransactions();
+    }
   } catch (err: any) {
     console.error('Error fetching dashboard data:', err);
     error.value = err.message || 'Failed to load dashboard data';
@@ -97,11 +66,11 @@ const fetchDashboardData = async () => {
 };
 
 const selectAccount = (account: Account) => {
-  selectedAccount.value = account;
+  accountStore.setSelectedAccount(account);
 };
 
 const viewAllAccounts = () => {
-  selectedAccount.value = null;
+  accountStore.setSelectedAccount(null);
 };
 
 const refreshData = () => {
@@ -109,15 +78,10 @@ const refreshData = () => {
 };
 
 const handleLogout = () => {
-  AuthService.logout();
+  authStore.logout();
 };
 
-// Watch for changes to selectedAccount to refresh transactions
-watch(selectedAccount, () => {
-  fetchTransactions();
-});
-
-// Format a transaction's description for display
+// Transaction display helpers
 const getTransactionDescription = (transaction: Transaction): string => {
   const userAccountNumbers = accounts.value.map(acc => acc.accountNumber);
 
@@ -141,8 +105,6 @@ const getTransactionDescription = (transaction: Transaction): string => {
   return transaction.description || 'Transaction';
 };
 
-// Determine if a transaction is positive or negative for display
-// TODO: Add minus if it's negative
 const isPositiveTransaction = (transaction: Transaction): boolean => {
   const userAccountNumbers = accounts.value.map(acc => acc.accountNumber);
 
@@ -175,19 +137,25 @@ const isPositiveTransaction = (transaction: Transaction): boolean => {
   return true;
 };
 
-onMounted(() => {
+// Watch for changes to selectedAccount to refresh transactions
+watch(() => accountStore.currentAccount, async () => {
+  if (selectedAccount.value) {
+    await transactionStore.fetchTransactionsByAccount(selectedAccount.value.accountNumber);
+  } else {
+    await transactionStore.fetchAllTransactions();
+  }
+});
+
+// Initial setup
+onMounted(async () => {
   // Validate authentication token
-  AuthService.validateToken()
-      .then(userData => {
-        if (userData) {
-          user.value = userData;
-        }
-        fetchDashboardData();
-      })
-      .catch(err => {
-        console.error('Token validation error:', err);
-        // AuthService.logout() will be called in the validateToken method if it fails
-      });
+  try {
+    await authStore.validateToken();
+    await fetchDashboardData();
+  } catch (err) {
+    console.error('Token validation error:', err);
+    // authStore.logout() will be called in validateToken if it fails
+  }
 });
 </script>
 
@@ -196,7 +164,7 @@ onMounted(() => {
     <!-- Header with user info and actions -->
     <header class="dashboard-header">
       <div class="user-welcome">
-        <h1>Welcome, {{ user ? user.name : 'User' }}!</h1>
+        <h1>Welcome, {{ authStore.currentUser ? authStore.currentUser.name : 'User' }}!</h1>
       </div>
       <div class="header-actions">
         <button @click="refreshData" class="refresh-button" :disabled="isLoading">
@@ -228,7 +196,7 @@ onMounted(() => {
           </button>
         </div>
 
-        <div v-if="isLoading" class="card-loading">
+        <div v-if="isLoading || accountStore.isLoading" class="card-loading">
           <div v-for="i in 3" :key="i" class="skeleton-loader account-skeleton"></div>
         </div>
         <div v-else-if="accounts.length === 0" class="no-data">
@@ -258,7 +226,7 @@ onMounted(() => {
         <!-- Account balance card -->
         <div class="summary-card balance-card">
           <h2>{{ selectedAccount ? selectedAccount.accountName : 'Total Balance' }}</h2>
-          <div v-if="isLoading" class="card-loading">
+          <div v-if="isLoading || accountStore.isLoading" class="card-loading">
             <div class="skeleton-loader balance-skeleton"></div>
           </div>
           <p v-else class="balance">{{ formatCurrency(accountBalance, currentCurrency) }}</p>
@@ -272,13 +240,13 @@ onMounted(() => {
           <h2>
             {{ selectedAccount ? 'Account Transactions' : 'Recent Transactions' }}
           </h2>
-          <div v-if="isLoading" class="card-loading">
+          <div v-if="isLoading || transactionStore.isLoading" class="card-loading">
             <div v-for="i in 4" :key="i" class="skeleton-loader transaction-skeleton">
               <div class="skeleton-line"></div>
               <div class="skeleton-line short"></div>
             </div>
           </div>
-          <div v-else-if="transactions.length === 0" class="no-data">
+          <div v-else-if="sortedTransactions.length === 0" class="no-data">
             No transactions found.
           </div>
           <ul v-else class="transaction-list">
@@ -317,6 +285,7 @@ onMounted(() => {
 </template>
 
 <style scoped>
+/* CSS remains the same as before */
 .dashboard-container {
   max-width: 1200px;
   width: 100%;

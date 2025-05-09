@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import AuthService from '@/services/AuthService';
+import { useAuthStore } from '@/stores/auth.store';
 
 // Form state
 const username = ref('');
@@ -11,6 +11,7 @@ const error = ref('');
 
 // Get router for navigation
 const router = useRouter();
+const authStore = useAuthStore();
 
 // Handle login submission
 const handleLogin = async () => {
@@ -26,8 +27,8 @@ const handleLogin = async () => {
   try {
     isLoading.value = true;
 
-    // Call login service
-    await AuthService.login(username.value, password.value);
+    // Call login action from the auth store
+    await authStore.login(username.value, password.value);
 
     // Redirect to dashboard on success
     router.push('/dashboard');

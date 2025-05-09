@@ -1,4 +1,4 @@
-package com.codegeneration.banking.api.service.tokenblacklistservice;
+package com.codegeneration.banking.api.service.implementations;
 
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -36,7 +36,7 @@ public class TokenBlacklistService {
      * Clean up expired tokens from the blacklist
      * This method runs every hour
      */
-    @Scheduled(fixedRate = 3600000) // Run every hour
+    @Scheduled(fixedRate = 3600000)
     public void cleanupExpiredTokens() {
         Instant now = Instant.now();
         blacklistedTokens.entrySet().removeIf(entry -> entry.getValue().isBefore(now));
