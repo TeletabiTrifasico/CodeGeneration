@@ -1,4 +1,4 @@
-package com.codegeneration.banking.config;
+package com.codegeneration.banking.api.config;
 
 import com.codegeneration.banking.api.security.JwtAuthenticationEntryPoint;
 import com.codegeneration.banking.api.security.JwtAuthenticationFilter;
