@@ -34,7 +34,7 @@ const routes: Array<RouteRecordRaw> = [
         path: '/employeePanel',
         name: 'employeePanel',
         component: EmployeeView,
-        meta: { requiresAuth: true }
+        //meta: { requiresAuth: true }
     },
     {
         // Catch-all redirect to home

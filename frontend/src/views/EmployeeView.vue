@@ -7,11 +7,11 @@ import EmployeeDefault from '../components/EmployeeDefault.vue'; // Make sure th
 
 
 // User reactive state
+const authStore = useAuthStore();
 const user = ref(authStore.currentUser);
 const isLoading = ref(true);
 const error = ref('');
 const currentPanel = ref('default');
-const authStore = useAuthStore();
 
 const handleLogout = () => {
   authStore.logout();

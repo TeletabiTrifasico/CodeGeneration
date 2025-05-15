@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
+import { useAuthStore } from '@/stores/auth.store';
 
 
 // User reactive state
-const user = ref(AuthService.getCurrentUser());
+const authStore = useAuthStore();
+const user = ref(authStore.currentUser);
 const isLoading = ref(true);
 const error = ref('');
 </script>

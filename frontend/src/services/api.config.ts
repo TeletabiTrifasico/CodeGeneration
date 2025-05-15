@@ -42,7 +42,11 @@ export const API_ENDPOINTS = {
         getAll: '/transaction/getall',
         byAccount: (accountNumber: string) => `/transaction/byaccount/${accountNumber}`,
         transfer: '/transaction/transfer'
-    }
+    },
+    user: {
+        getAll: '/users/getall',
+        byPage: (pageNumber: number, limit: number) => `/users/bypage/${pageNumber}?limit=${limit}`,
+    },
 };
 
 // Add request interceptor to automatically add Authorization header to all requests
