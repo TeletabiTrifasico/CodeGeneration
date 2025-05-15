@@ -1,36 +1,34 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
+import { useAuthStore } from '@/stores/auth.store';
 import EmployeeUsers from '../components/EmployeeUsers.vue'; // Make sure this path is correct
 import EmployeeDefault from '../components/EmployeeDefault.vue'; // Make sure this path is correct
 
 
 
 // User reactive state
-const user = ref(AuthService.getCurrentUser());
+const user = ref(authStore.currentUser);
 const isLoading = ref(true);
 const error = ref('');
 const currentPanel = ref('default');
+const authStore = useAuthStore();
 
 const handleLogout = () => {
-  AuthService.logout();
+  authStore.logout();
 };
 const ChangeTab = (tab) => {
     console.log(tab);
     currentPanel.value = tab;
 }
 
-onMounted(() => {
+onMounted(async () => {
   // Validate authentication token
-  AuthService.validateToken()
-      .then(userData => {
-        if (userData) {
-          user.value = userData;
-        }
-      })
-      .catch(err => {
-        console.error('Token validation error:', err);
-        // AuthService.logout() will be called in the validateToken method if it fails
-      });
+  try {
+    await authStore.validateToken();
+  } catch (err) {
+    console.error('Token validation error:', err);
+    // authStore.logout() will be called in validateToken if it fails
+  }
     isLoading.value = false;
 });
 </script>
