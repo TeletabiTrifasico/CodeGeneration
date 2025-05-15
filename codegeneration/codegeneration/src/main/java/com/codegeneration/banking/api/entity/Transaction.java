@@ -76,6 +76,11 @@ public class Transaction {
 
     @Column(nullable = true)
     private LocalDateTime completedAt;
+    
+//same as in the Account entity
+
+    public Transaction(long l, String trx123456, Account account, Account account1, BigDecimal bigDecimal, TransactionType transactionType) {
+    }
 
     @PrePersist
     protected void onCreate() {

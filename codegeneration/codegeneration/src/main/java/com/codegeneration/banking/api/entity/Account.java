@@ -80,6 +80,11 @@ public class Account {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
+
+    //for tests
+    public Account(long l, String testAccountNumber, BigDecimal bigDecimal) {
+    }
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
