@@ -15,7 +15,7 @@ export const apiClient = axios.create({
     headers: {
         'Content-Type': 'application/json'
     },
-    timeout: 15000 // 15 seconds timeout
+    timeout: 15000
 });
 
 // Helper function to get authorization header
@@ -26,24 +26,22 @@ export const getAuthHeader = () => {
 
 // Common API endpoints
 export const API_ENDPOINTS = {
-    // Auth endpoints
     auth: {
-        login: '/auth/login', // POST
-        logout: '/auth/logout', // POST
-        register: '/auth/register', // POST
-        validate: '/auth/validate' // GET
+        login: '/auth/login',
+        logout: '/auth/logout',
+        validate: '/auth/validate',
+        register: '/auth/register'
     },
-
-    // Account endpoints
     account: {
-        getAll: '/account/getall', // GET with Authorization header
-        details: (accountNumber: string) => `/account/details/${accountNumber}` // GET with Authorization header
+        getAll: '/account/getall',
+        details: (accountNumber: string) => `/account/details/${accountNumber}`,
+        search: '/account/search',
+        getIBANByUsername: '/account/getIBANByUsername'
     },
-
-    // Transaction endpoints
     transaction: {
-        getAll: '/transaction/getall', // GET with Authorization header
-        byAccount: (accountNumber: string) => `/transaction/byaccount/${accountNumber}` // GET with Authorization header
+        getAll: '/transaction/getall',
+        byAccount: (accountNumber: string) => `/transaction/byaccount/${accountNumber}`,
+        transfer: '/transaction/transfer'
     }
 };
 

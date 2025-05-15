@@ -124,4 +124,49 @@ public class AccountController extends BaseController {
         return ResponseEntity.ok(response);
     }
 
+    @Operation(summary = "Search for accounts by username", description = "Returns accounts matching the search term")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully searched accounts",
+                    content = @Content(schema = @Schema(implementation = AccountResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Not authenticated"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    @GetMapping("/search")
+    public ResponseEntity<AccountResponse> searchAccounts(@RequestParam("term") String searchTerm) {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+            if (authentication == null || !authentication.isAuthenticated()) {
+                log.warn("No authentication found for GET /account/search");
+                return ResponseEntity.status(401).build();
+            }
+
+            String username = authentication.getName();
+            log.info("Processing GET /account/search with term: '{}' for user: {}", searchTerm, username);
+
+            // Ensure search term is not empty and has minimum length
+            if (searchTerm == null || searchTerm.trim().length() < 2) {
+                return ResponseEntity.ok(new AccountResponse(List.of()));
+            }
+
+            // Find users by name
+            List<Account> accounts = accountService.searchAccountsByUsername(searchTerm.trim());
+
+            // Filter out the current user's accounts
+            accounts = accounts.stream()
+                    .filter(account -> !account.getUser().getUsername().equals(username))
+                    .collect(Collectors.toList());
+
+            List<AccountDTO> accountDTOs = accounts.stream()
+                    .map(AccountDTO::fromEntity)
+                    .collect(Collectors.toList());
+
+            AccountResponse response = new AccountResponse(accountDTOs);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error in GET /account/search", e);
+            throw e;
+        }
+    }
+
 }

@@ -4,15 +4,18 @@ import { useAuthStore } from '@/stores/auth.store';
 import { useAccountStore } from '@/stores/account.store';
 import { useTransactionStore } from '@/stores/transaction.store';
 import { Account, Transaction } from '@/models';
+import TransferModal from "@/components/modals/TransferModal.vue";
 
 // Get the stores
 const authStore = useAuthStore();
 const accountStore = useAccountStore();
 const transactionStore = useTransactionStore();
 
-// Local state for UI handling
 const isLoading = ref(true);
 const error = ref('');
+const showTransferModal = ref(false);
+const transactionSearch = ref('');
+const transactionAmountSearch = ref(null);
 
 // Get sorted transactions from store
 const sortedTransactions = computed(() => transactionStore.sortedTransactions);
@@ -137,6 +140,20 @@ const isPositiveTransaction = (transaction: Transaction): boolean => {
   return true;
 };
 
+// Add these methods to your component
+const openTransferModal = () => {
+  showTransferModal.value = true;
+};
+
+const closeTransferModal = () => {
+  showTransferModal.value = false;
+};
+
+const handleTransferComplete = async () => {
+  // Refresh data after successful transfer
+  await fetchDashboardData();
+};
+
 // Watch for changes to selectedAccount to refresh transactions
 watch(() => accountStore.currentAccount, async () => {
   if (selectedAccount.value) {
@@ -145,6 +162,12 @@ watch(() => accountStore.currentAccount, async () => {
     await transactionStore.fetchAllTransactions();
   }
 });
+
+watch(() => transactionSearch.value, async () => {
+  if(transactionSearch.value) {
+
+  }
+})
 
 // Initial setup
 onMounted(async () => {
@@ -240,6 +263,21 @@ onMounted(async () => {
           <h2>
             {{ selectedAccount ? 'Account Transactions' : 'Recent Transactions' }}
           </h2>
+          <div class="search-card">
+            <input
+                type="text"
+                v-model="transactionSearch"
+                placeholder="Search for transaction"
+                :disabled="isLoading"
+            />
+            <input
+                type="text"
+                v-model="transactionAmountSearch"
+                placeholder="Amount"
+                :disabled="isLoading"
+                class="amount"
+            />
+          </div>
           <div v-if="isLoading || transactionStore.isLoading" class="card-loading">
             <div v-for="i in 4" :key="i" class="skeleton-loader transaction-skeleton">
               <div class="skeleton-line"></div>
@@ -257,8 +295,11 @@ onMounted(async () => {
                 <span class="transaction-details">{{ transaction.description }}</span>
                 <span class="transaction-status">{{ transaction.transactionStatus }}</span>
               </div>
-              <span class="transaction-amount" :class="isPositiveTransaction(transaction) ? 'positive' : 'negative'">
+              <span v-if="isPositiveTransaction(transaction)" class="transaction-amount positive">
                 {{ formatCurrency(transaction.amount, transaction.currency) }}
+              </span>
+              <span v-else class="transaction-amount negative">
+                {{ `-${formatCurrency(transaction.amount, transaction.currency)}` }}
               </span>
             </li>
           </ul>
@@ -267,25 +308,52 @@ onMounted(async () => {
 
       <!-- Quick actions panel -->
       <div class="dashboard-actions">
-        <button class="action-button">
+        <button class="action-button" @click="openTransferModal">
           <span class="action-icon">↗</span>
           Transfer Money
-        </button>
-        <button class="action-button">
-          <span class="action-icon">📄</span>
-          Pay Bills
-        </button>
-        <button class="action-button">
-          <span class="action-icon">📊</span>
-          View Statements
         </button>
       </div>
     </div>
   </div>
+  <TransferModal
+      :show="showTransferModal"
+      :selected-account="selectedAccount"
+      @close="closeTransferModal"
+      @transfer-complete="handleTransferComplete"
+  />
 </template>
 
 <style scoped>
-/* CSS remains the same as before */
+
+.search-card {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+input {
+  padding: 12px 16px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.2s ease;
+  width: 50%;
+}
+
+input.amount {
+  width: 20%!important;
+}
+
+input:focus {
+  border-color: #4CAF50;
+  outline: none;
+}
+
+input:disabled {
+  background-color: #f9f9f9;
+  cursor: not-allowed;
+}
+
 .dashboard-container {
   max-width: 1200px;
   width: 100%;

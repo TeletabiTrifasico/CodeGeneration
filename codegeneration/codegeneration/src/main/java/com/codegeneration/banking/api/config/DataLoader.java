@@ -57,8 +57,8 @@ public class DataLoader implements CommandLineRunner {
         User user1 = User.builder()
                 .username("user1")
                 .password(passwordEncoder.encode("user123"))
-                .name("John Doe")
-                .email("john.doe@example.com")
+                .name("Jan Kowalski")
+                .email("jan.kowalski@example.com")
                 .role(UserRole.CLIENT)
                 .enabled(true)
                 .build();

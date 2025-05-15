@@ -4,6 +4,7 @@ import com.codegeneration.banking.api.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -41,4 +42,20 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * @return True if exists, false otherwise
      */
     boolean existsByEmail(String email);
+
+    /**
+     * Find users by username (partial match, case insensitive)
+     *
+     * @param username The username to search for
+     * @return List of users matching the search criteria
+     */
+    List<User> findByUsernameContainingIgnoreCase(String username);
+
+    /**
+     * Find users by name (partial match, case insensitive)
+     *
+     * @param name The name to search for
+     * @return List of users matching the search criteria
+     */
+    List<User> findByNameContainingIgnoreCase(String name);
 }

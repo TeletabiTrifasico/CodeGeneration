@@ -40,4 +40,20 @@ public interface AccountService {
      * @return The account if found, null if not found or not owned by the user
      */
     Account getAccountByNumberAndUser(String accountNumber, User user);
+
+    /**
+     * Search for accounts by username (partial match)
+     *
+     * @param username The username to search for (can be partial)
+     * @return List of accounts matching the search criteria
+     */
+    List<Account> searchAccountsByUsername(String username);
+
+    /**
+     * Get an account by account number
+     *
+     * @param accountNumber The account number
+     * @return The account if found, null otherwise
+     */
+    Account getAccountByNumber(String accountNumber);
 }

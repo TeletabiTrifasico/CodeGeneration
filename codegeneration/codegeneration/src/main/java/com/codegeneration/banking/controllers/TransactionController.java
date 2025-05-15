@@ -2,9 +2,12 @@ package com.codegeneration.banking.controllers;
 
 import com.codegeneration.banking.api.dto.transaction.TransactionDTO;
 import com.codegeneration.banking.api.dto.transaction.TransactionResponse;
+import com.codegeneration.banking.api.dto.transaction.TransferRequest;
 import com.codegeneration.banking.api.entity.Account;
 import com.codegeneration.banking.api.entity.Transaction;
 import com.codegeneration.banking.api.exception.ResourceNotFoundException;
+import com.codegeneration.banking.api.repository.AccountRepository;
+import com.codegeneration.banking.api.repository.TransactionRepository;
 import com.codegeneration.banking.api.security.JwtAuthenticationFilter;
 import com.codegeneration.banking.api.security.JwtTokenProvider;
 import com.codegeneration.banking.api.service.interfaces.AccountService;
@@ -17,12 +20,16 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
@@ -34,6 +41,8 @@ public class TransactionController extends BaseController {
 
     private final TransactionService transactionService;
     private final AccountService accountService;
+    private final TransactionRepository transactionRepository;
+    private final AccountRepository accountRepository;
 
     @Operation(summary = "Get all transactions", description = "Returns all transactions belonging to the authenticated user")
     @ApiResponses(value = {
@@ -118,25 +127,117 @@ public class TransactionController extends BaseController {
     }
 
 
+    @Operation(summary = "Transfer money between accounts", description = "Process a money transfer between accounts")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Transfer completed successfully",
+                    content = @Content(schema = @Schema(implementation = TransactionDTO.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid request"),
+            @ApiResponse(responseCode = "401", description = "Not authenticated"),
+            @ApiResponse(responseCode = "404", description = "Account not found"),
+            @ApiResponse(responseCode = "422", description = "Insufficient funds or limit exceeded"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
     @PostMapping("/transfer")
-    public ResponseEntity postTransaction(@RequestBody TransactionDTO transactionDTO) {
-
+    public ResponseEntity<TransactionDTO> transferMoney(@RequestBody TransferRequest transferRequest) {
         try {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-            if(authentication == null || !authentication.isAuthenticated()) {
-                log.warn("No authentication found for GET /api/transaction/transfer/");
-                return ResponseEntity.status(401).build();
+            if (authentication == null || !authentication.isAuthenticated()) {
+                log.warn("No authentication found for POST /api/transaction/transfer");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
 
             String username = authentication.getName();
+            log.info("Processing POST /api/transaction/transfer for user: {}", username);
 
+            // Validate request parameters
+            if (transferRequest.getFromAccount() == null || transferRequest.getToAccount() == null ||
+                    transferRequest.getAmount() == null) {
+                return ResponseEntity.badRequest().build();
+            }
 
+            // Validate source account belongs to the authenticated user
+            Account sourceAccount = accountService.getAccountByNumberAndUsername(
+                    transferRequest.getFromAccount(), username);
+
+            if (sourceAccount == null) {
+                throw new ResourceNotFoundException("Source account not found or does not belong to you: "
+                        + transferRequest.getFromAccount());
+            }
+
+            // Validate amount is positive
+            if (transferRequest.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+                return ResponseEntity.badRequest().build();
+            }
+
+            // Validate sufficient funds
+            if (sourceAccount.getBalance().compareTo(transferRequest.getAmount()) < 0) {
+                return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                        .body(null); // 422 for insufficient funds
+            }
+
+            // Validate transfer limits
+            if (!sourceAccount.isTransferAllowed(transferRequest.getAmount())) {
+                return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                        .body(null); // 422 for limit exceeded
+            }
+
+            // Get destination account (no need to belong to the authenticated user)
+            Account destinationAccount = accountService.getAccountByNumber(transferRequest.getToAccount());
+            if (destinationAccount == null) {
+                throw new ResourceNotFoundException("Destination account not found: " + transferRequest.getToAccount());
+            }
+
+            // Generate a unique transaction reference
+            String transactionReference = generateTransactionReference();
+
+            // Create the transaction
+            Transaction transaction = Transaction.builder()
+                    .transactionReference(transactionReference)
+                    .sourceAccount(sourceAccount)
+                    .destinationAccount(destinationAccount)
+                    .amount(transferRequest.getAmount())
+                    .description(transferRequest.getDescription() != null ?
+                            transferRequest.getDescription() : "Transfer")
+                    .currency(sourceAccount.getCurrency())
+                    .status(Transaction.TransactionStatus.PENDING)
+                    .type(Transaction.TransactionType.TRANSFER)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+
+            // Update account balances
+            sourceAccount.setBalance(sourceAccount.getBalance().subtract(transferRequest.getAmount()));
+            sourceAccount.updateTransferUsed(transferRequest.getAmount());
+
+            destinationAccount.setBalance(destinationAccount.getBalance().add(transferRequest.getAmount()));
+
+            // Save transaction and updated accounts
+            Transaction savedTransaction = transactionRepository.save(transaction);
+            accountRepository.save(sourceAccount);
+            accountRepository.save(destinationAccount);
+
+            // Mark as completed after successful processing
+            savedTransaction.setStatus(Transaction.TransactionStatus.COMPLETED);
+            savedTransaction.setCompletedAt(LocalDateTime.now());
+            savedTransaction = transactionRepository.save(savedTransaction);
+
+            return ResponseEntity.ok(TransactionDTO.fromEntity(savedTransaction));
+
+        } catch (ResourceNotFoundException e) {
+            log.error("Resource not found in transfer: {}", e.getMessage());
+            throw e;
         } catch (Exception e) {
-            log.error("Error in POST /transaction", e);
+            log.error("Error in POST /api/transaction/transfer", e);
             throw e;
         }
+    }
 
-        return ResponseEntity.ok(true);
+    /**
+     * Generate a unique transaction reference
+     *
+     * @return A unique transaction reference string
+     */
+    private String generateTransactionReference() {
+        return "TRX-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 }

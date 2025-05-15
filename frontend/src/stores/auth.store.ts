@@ -126,20 +126,6 @@ export const useAuthStore = defineStore('auth', {
                     return false;
                 }
 
-                // In a real implementation, you would make a request to refresh the token
-                // For now, we'll implement a simple version that returns success
-                // Example API call (commented out):
-                // const response = await apiClient.post(API_ENDPOINTS.auth.refresh, {
-                //   refreshToken: this.refreshToken
-                // });
-
-                // this.token = response.data.token;
-                // this.expiresAt = new Date().getTime() + response.data.expiresIn * 1000;
-
-                // localStorage.setItem('token', this.token);
-                // localStorage.setItem('token_expires_at', this.expiresAt.toString());
-
-                // For now, just validate the existing token to see if it's still valid
                 const user = await this.validateToken();
                 return !!user;
             } catch (error) {

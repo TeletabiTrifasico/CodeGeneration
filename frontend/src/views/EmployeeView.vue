@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
-import AuthService from '@/services/AuthService';
-import requestService from '@/services/RequestService';
 import EmployeeUsers from '../components/EmployeeUsers.vue'; // Make sure this path is correct
 import EmployeeDefault from '../components/EmployeeDefault.vue'; // Make sure this path is correct
 

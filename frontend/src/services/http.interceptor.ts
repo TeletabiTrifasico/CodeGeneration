@@ -73,7 +73,6 @@ apiClient.interceptors.response.use(
                 });
             }
 
-            // Start refreshing token
             originalRequest._retry = true;
             isRefreshing = true;
 
