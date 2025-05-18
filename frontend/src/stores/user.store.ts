@@ -43,12 +43,15 @@ export const useUserStore = defineStore('use', {
                 this.loading = true;
                 this.error = null;
 
+                console.log("hey1");
                 const response = await apiClient.get(
                     API_ENDPOINTS.user.byPage(pageNumber, USERS_PER_PAGE),
                     { headers: getAuthHeader() }
                 );
                 console.log(response.data.users);
+                console.log("hey");
                 this.pagedUsers = response.data.users;
+                console.log(typeof(this.pagedUsers));
                 return this.pagedUsers;
             } catch (error: any) {
                 console.error('Error fetching account transactions:', error);
@@ -58,5 +61,8 @@ export const useUserStore = defineStore('use', {
                 this.loading = false;
             }
         },
+        async getFirstPage() {
+            return await this.getUsersByPage(1);
+        }
     }
 });

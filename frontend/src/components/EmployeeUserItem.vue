@@ -3,6 +3,8 @@ import { ref, onMounted, computed } from 'vue';
 
 const isLoading = ref(true);
 const error = ref('');
+
+const name = "";
 </script>
 
 <template>

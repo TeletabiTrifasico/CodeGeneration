@@ -54,6 +54,34 @@ public class UserController extends BaseController {
             log.info("Processing GET /users/getall for user: {}", username);
 
             List<User> users = userService.getAllUsers();
+            List<UserDTO> userDTOs = users.stream()
+                    .map(UserDTO::fromEntity)
+                    .collect(Collectors.toList());
+
+            UserResponse response = UserResponse.builder()
+                    .users(userDTOs)
+                    .build();
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error in GET /users/getall", e);
+            throw e;
+        }
+    }
+    @GetMapping("/getPage")
+    public ResponseEntity<UserResponse> getUsersByPage(@RequestParam Number limit, @RequestParam Number page) {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+            if (authentication == null || !authentication.isAuthenticated()) {
+                log.warn("No authentication found for GET /transaction/getall");
+                return ResponseEntity.status(401).build();
+            }
+
+            String username = authentication.getName();
+            log.info("Processing GET /users/getall for user: {}", username);
+
+            List<User> users = userService.getUsersByPage(page, limit);
 
             List<UserDTO> userDTOs = users.stream()
                     .map(UserDTO::fromEntity)

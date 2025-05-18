@@ -45,7 +45,7 @@ export const API_ENDPOINTS = {
     },
     user: {
         getAll: '/users/getall',
-        byPage: (pageNumber: number, limit: number) => `/users/bypage/${pageNumber}?limit=${limit}`,
+        byPage: (pageNumber: number, limit: number) => `/users/getPage?page=${pageNumber}&limit=${limit}`,
     },
 };
 
