@@ -50,6 +50,7 @@ public class User {
     @Column(nullable = false)
     private boolean enabled = true;
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Account> accounts = new ArrayList<>();
+    //Commented out for now, due to some issues with getting all users and it looping
+    //@OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    //private List<Account> accounts = new ArrayList<>();
 }
