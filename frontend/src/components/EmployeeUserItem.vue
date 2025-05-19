@@ -4,9 +4,11 @@ import { ref, onMounted, computed } from 'vue';
 const isLoading = ref(true);
 const error = ref('');
 
-const name = "";
+const props = defineProps<{
+  user: object
+}>();
 </script>
 
 <template>
-  <div>user tab</div>  
+  <a href="employeePanel/user"> {{ user }}</a>
 </template>

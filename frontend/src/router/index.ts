@@ -4,6 +4,7 @@ import LoginView from '../views/LoginView.vue';
 import RegisterView from '@/views/RegisterView.vue';
 import { useAuthStore } from '@/stores/auth.store';
 import EmployeeView from '@/views/EmployeeView.vue';
+import UserOverview from '@/views/UserOverview.vue';
 
 const routes: Array<RouteRecordRaw> = [
     {
@@ -34,6 +35,12 @@ const routes: Array<RouteRecordRaw> = [
         path: '/employeePanel',
         name: 'employeePanel',
         component: EmployeeView,
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/employeePanel/user/',
+        name: 'userOverview',
+        component: UserOverview,
         meta: { requiresAuth: true }
     },
     {

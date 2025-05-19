@@ -28,7 +28,7 @@ onMounted(async () => {
   <span v-if="isLoading" class="spinner small"></span>
   <div v-else>
     <div v-for="item in pageUsers">
-      {{ item }}
+      <UserItem :user="item"/>
     </div>
   </div>
   
