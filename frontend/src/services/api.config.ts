@@ -24,6 +24,32 @@ export const getAuthHeader = () => {
     return authStore.authToken ? { 'Authorization': `Bearer ${authStore.authToken}` } : {};
 };
 
+// Transaction filter interface
+export interface TransactionFilters {
+    startDate?: string;
+    endDate?: string;
+    amountLessThan?: number;
+    amountGreaterThan?: number;
+    amountEqualTo?: number;
+    iban?: string;
+    transactionType?: string;
+    transactionStatus?: string;
+    description?: string;
+}
+
+// Helper function to build query parameters from filters
+export const buildFilterParams = (filters: TransactionFilters): URLSearchParams => {
+    const params = new URLSearchParams();
+
+    Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+            params.append(key, value.toString());
+        }
+    });
+
+    return params;
+};
+
 // Common API endpoints
 export const API_ENDPOINTS = {
     auth: {
@@ -40,7 +66,9 @@ export const API_ENDPOINTS = {
     },
     transaction: {
         getAll: '/transaction/getall',
+        filter: '/transaction/filter',
         byAccount: (accountNumber: string) => `/transaction/byaccount/${accountNumber}`,
+        byAccountFilter: (accountNumber: string) => `/transaction/byaccount/${accountNumber}/filter`,
         transfer: '/transaction/transfer'
     },
     user: {

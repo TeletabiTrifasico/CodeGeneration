@@ -1,6 +1,7 @@
 package com.codegeneration.banking.controllers;
 
 import com.codegeneration.banking.api.dto.transaction.TransactionDTO;
+import com.codegeneration.banking.api.dto.transactionfilter.TransactionFilterRequest;
 import com.codegeneration.banking.api.dto.transaction.TransactionResponse;
 import com.codegeneration.banking.api.dto.transaction.TransferRequest;
 import com.codegeneration.banking.api.entity.Account;
@@ -8,9 +9,8 @@ import com.codegeneration.banking.api.entity.Transaction;
 import com.codegeneration.banking.api.exception.ResourceNotFoundException;
 import com.codegeneration.banking.api.repository.AccountRepository;
 import com.codegeneration.banking.api.repository.TransactionRepository;
-import com.codegeneration.banking.api.security.JwtAuthenticationFilter;
-import com.codegeneration.banking.api.security.JwtTokenProvider;
 import com.codegeneration.banking.api.service.interfaces.AccountService;
+import com.codegeneration.banking.api.service.interfaces.TransactionFilterService;
 import com.codegeneration.banking.api.service.interfaces.TransactionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -20,6 +20,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -27,6 +28,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -40,6 +42,7 @@ import java.util.stream.Collectors;
 public class TransactionController extends BaseController {
 
     private final TransactionService transactionService;
+    private final TransactionFilterService transactionFilterService;
     private final AccountService accountService;
     private final TransactionRepository transactionRepository;
     private final AccountRepository accountRepository;
@@ -78,6 +81,66 @@ public class TransactionController extends BaseController {
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             log.error("Error in GET /transaction/getall", e);
+            throw e;
+        }
+    }
+
+    @Operation(summary = "Get filtered transactions", description = "Returns filtered transactions belonging to the authenticated user")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved filtered transactions",
+                    content = @Content(schema = @Schema(implementation = TransactionResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Not authenticated"),
+            @ApiResponse(responseCode = "403", description = "Forbidden"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    @GetMapping("/filter")
+    public ResponseEntity<TransactionResponse> getFilteredTransactions(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) BigDecimal amountLessThan,
+            @RequestParam(required = false) BigDecimal amountGreaterThan,
+            @RequestParam(required = false) BigDecimal amountEqualTo,
+            @RequestParam(required = false) String iban,
+            @RequestParam(required = false) String transactionType,
+            @RequestParam(required = false) String transactionStatus,
+            @RequestParam(required = false) String description) {
+
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+            if (authentication == null || !authentication.isAuthenticated()) {
+                log.warn("No authentication found for GET /transaction/filter");
+                return ResponseEntity.status(401).build();
+            }
+
+            String username = authentication.getName();
+            log.info("Processing GET /transaction/filter for user: {}", username);
+
+            TransactionFilterRequest filterRequest = TransactionFilterRequest.builder()
+                    .startDate(startDate)
+                    .endDate(endDate)
+                    .amountLessThan(amountLessThan)
+                    .amountGreaterThan(amountGreaterThan)
+                    .amountEqualTo(amountEqualTo)
+                    .iban(iban)
+                    .transactionType(transactionType)
+                    .transactionStatus(transactionStatus)
+                    .description(description)
+                    .build();
+
+            List<Transaction> transactions = transactionFilterService.getFilteredTransactionsByUsername(username, filterRequest);
+
+            List<TransactionDTO> transactionDTOs = transactions.stream()
+                    .map(TransactionDTO::fromEntity)
+                    .collect(Collectors.toList());
+
+            TransactionResponse response = TransactionResponse.builder()
+                    .transactions(transactionDTOs)
+                    .build();
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error in GET /transaction/filter", e);
             throw e;
         }
     }
@@ -126,6 +189,67 @@ public class TransactionController extends BaseController {
         }
     }
 
+    @Operation(summary = "Get filtered transactions by account", description = "Returns filtered transactions for a specific account")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved filtered transactions",
+                    content = @Content(schema = @Schema(implementation = TransactionResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Not authenticated"),
+            @ApiResponse(responseCode = "403", description = "Forbidden"),
+            @ApiResponse(responseCode = "404", description = "Account not found"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    @GetMapping("/byaccount/{accountNumber}/filter")
+    public ResponseEntity<TransactionResponse> getFilteredTransactionsByAccount(
+            @PathVariable String accountNumber,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) BigDecimal amountLessThan,
+            @RequestParam(required = false) BigDecimal amountGreaterThan,
+            @RequestParam(required = false) BigDecimal amountEqualTo,
+            @RequestParam(required = false) String iban,
+            @RequestParam(required = false) String transactionType,
+            @RequestParam(required = false) String transactionStatus,
+            @RequestParam(required = false) String description) {
+
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+            if (authentication == null || !authentication.isAuthenticated()) {
+                log.warn("No authentication found for GET /transaction/byaccount/{}/filter", accountNumber);
+                return ResponseEntity.status(401).build();
+            }
+
+            String username = authentication.getName();
+            log.info("Processing GET /transaction/byaccount/{}/filter for user: {}", accountNumber, username);
+
+            TransactionFilterRequest filterRequest = TransactionFilterRequest.builder()
+                    .startDate(startDate)
+                    .endDate(endDate)
+                    .amountLessThan(amountLessThan)
+                    .amountGreaterThan(amountGreaterThan)
+                    .amountEqualTo(amountEqualTo)
+                    .iban(iban)
+                    .transactionType(transactionType)
+                    .transactionStatus(transactionStatus)
+                    .description(description)
+                    .build();
+
+            List<Transaction> transactions = transactionFilterService.getFilteredTransactionsByAccount(accountNumber, username, filterRequest);
+
+            List<TransactionDTO> transactionDTOs = transactions.stream()
+                    .map(TransactionDTO::fromEntity)
+                    .collect(Collectors.toList());
+
+            TransactionResponse response = TransactionResponse.builder()
+                    .transactions(transactionDTOs)
+                    .build();
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error in GET /transaction/byaccount/{}/filter", e);
+            throw e;
+        }
+    }
 
     @Operation(summary = "Transfer money between accounts", description = "Process a money transfer between accounts")
     @ApiResponses(value = {

@@ -4,7 +4,9 @@ import { useAuthStore } from '@/stores/auth.store';
 import { useAccountStore } from '@/stores/account.store';
 import { useTransactionStore } from '@/stores/transaction.store';
 import { Account, Transaction } from '@/models';
+import { TransactionFilters } from '@/services/api.config';
 import TransferModal from "@/components/modals/TransferModal.vue";
+import TransactionFilter from "@/components/TransactionFilter.vue";
 
 // Get the stores
 const authStore = useAuthStore();
@@ -14,8 +16,6 @@ const transactionStore = useTransactionStore();
 const isLoading = ref(true);
 const error = ref('');
 const showTransferModal = ref(false);
-const transactionSearch = ref('');
-const transactionAmountSearch = ref(null);
 
 // Get sorted transactions from store
 const sortedTransactions = computed(() => transactionStore.sortedTransactions);
@@ -25,6 +25,10 @@ const accounts = computed(() => accountStore.allAccounts);
 const selectedAccount = computed(() => accountStore.currentAccount);
 const accountBalance = computed(() => accountStore.accountBalance);
 const currentCurrency = computed(() => accountStore.currentCurrency);
+
+// Check if filters are active
+const hasActiveFilters = computed(() => transactionStore.hasActiveFilters);
+const currentFilters = computed(() => transactionStore.currentFilters);
 
 // Format helpers
 const formatCurrency = (amount: number, currency: string): string => {
@@ -68,20 +72,62 @@ const fetchDashboardData = async () => {
   }
 };
 
+const fetchFilteredData = async (filters: TransactionFilters) => {
+  try {
+    isLoading.value = true;
+    error.value = '';
+
+    if (selectedAccount.value) {
+      await transactionStore.fetchFilteredTransactionsByAccount(
+          selectedAccount.value.accountNumber,
+          filters
+      );
+    } else {
+      await transactionStore.fetchFilteredTransactions(filters);
+    }
+  } catch (err: any) {
+    console.error('Error fetching filtered data:', err);
+    error.value = err.message || 'Failed to load filtered data';
+  } finally {
+    isLoading.value = false;
+  }
+};
+
 const selectAccount = (account: Account) => {
   accountStore.setSelectedAccount(account);
+  // Clear filters when switching accounts
+  transactionStore.clearFilters();
 };
 
 const viewAllAccounts = () => {
   accountStore.setSelectedAccount(null);
+  // Clear filters when switching to all accounts view
+  transactionStore.clearFilters();
 };
 
 const refreshData = () => {
-  fetchDashboardData();
+  if (hasActiveFilters.value) {
+    fetchFilteredData(currentFilters.value);
+  } else {
+    fetchDashboardData();
+  }
 };
 
 const handleLogout = () => {
   authStore.logout();
+};
+
+const handleFiltersChanged = (filters: TransactionFilters) => {
+  const hasFilters = Object.values(filters).some(value =>
+      value !== undefined && value !== null && value !== ''
+  );
+
+  if (hasFilters) {
+    fetchFilteredData(filters);
+  } else {
+    // No filters, fetch all data
+    fetchDashboardData();
+  }
 };
 
 // Transaction display helpers
@@ -140,7 +186,7 @@ const isPositiveTransaction = (transaction: Transaction): boolean => {
   return true;
 };
 
-// Add these methods to your component
+// Transfer modal methods
 const openTransferModal = () => {
   showTransferModal.value = true;
 };
@@ -151,33 +197,31 @@ const closeTransferModal = () => {
 
 const handleTransferComplete = async () => {
   // Refresh data after successful transfer
-  await fetchDashboardData();
+  await refreshData();
 };
 
 // Watch for changes to selectedAccount to refresh transactions
 watch(() => accountStore.currentAccount, async () => {
-  if (selectedAccount.value) {
-    await transactionStore.fetchTransactionsByAccount(selectedAccount.value.accountNumber);
+  if (hasActiveFilters.value) {
+    // Re-apply current filters for the new account selection
+    await fetchFilteredData(currentFilters.value);
   } else {
-    await transactionStore.fetchAllTransactions();
+    if (selectedAccount.value) {
+      await transactionStore.fetchTransactionsByAccount(selectedAccount.value.accountNumber);
+    } else {
+      await transactionStore.fetchAllTransactions();
+    }
   }
 });
 
-watch(() => transactionSearch.value, async () => {
-  if(transactionSearch.value) {
-
-  }
-})
-
 // Initial setup
 onMounted(async () => {
-  // Validate authentication token
   try {
     await authStore.validateToken();
     await fetchDashboardData();
   } catch (err) {
     console.error('Token validation error:', err);
-    // authStore.logout() will be called in validateToken if it fails
+    authStore.logout();
   }
 });
 </script>
@@ -246,7 +290,6 @@ onMounted(async () => {
       </div>
 
       <div class="dashboard-summary">
-        <!-- Account balance card -->
         <div class="summary-card balance-card">
           <h2>{{ selectedAccount ? selectedAccount.accountName : 'Total Balance' }}</h2>
           <div v-if="isLoading || accountStore.isLoading" class="card-loading">
@@ -260,24 +303,21 @@ onMounted(async () => {
 
         <!-- Recent transactions card -->
         <div class="summary-card transactions-card">
-          <h2>
-            {{ selectedAccount ? 'Account Transactions' : 'Recent Transactions' }}
-          </h2>
-          <div class="search-card">
-            <input
-                type="text"
-                v-model="transactionSearch"
-                placeholder="Search for transaction"
-                :disabled="isLoading"
-            />
-            <input
-                type="text"
-                v-model="transactionAmountSearch"
-                placeholder="Amount"
-                :disabled="isLoading"
-                class="amount"
-            />
+          <div class="transactions-header">
+            <h2>
+              {{ selectedAccount ? 'Account Transactions' : 'Recent Transactions' }}
+              <span v-if="hasActiveFilters" class="filter-indicator">
+                (Filtered)
+              </span>
+            </h2>
           </div>
+
+          <!-- Transaction Filter Component -->
+          <TransactionFilter
+              :initial-filters="currentFilters"
+              @filters-changed="handleFiltersChanged"
+          />
+
           <div v-if="isLoading || transactionStore.isLoading" class="card-loading">
             <div v-for="i in 4" :key="i" class="skeleton-loader transaction-skeleton">
               <div class="skeleton-line"></div>
@@ -285,7 +325,12 @@ onMounted(async () => {
             </div>
           </div>
           <div v-else-if="sortedTransactions.length === 0" class="no-data">
-            No transactions found.
+            <p v-if="hasActiveFilters">
+              No transactions found matching the current filters.
+            </p>
+            <p v-else>
+              No transactions found.
+            </p>
           </div>
           <ul v-else class="transaction-list">
             <li v-for="transaction in sortedTransactions" :key="transaction.id" class="transaction-item">
@@ -324,36 +369,6 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-
-.search-card {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-}
-
-input {
-  padding: 12px 16px;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  font-size: 1rem;
-  transition: border-color 0.2s ease;
-  width: 50%;
-}
-
-input.amount {
-  width: 20%!important;
-}
-
-input:focus {
-  border-color: #4CAF50;
-  outline: none;
-}
-
-input:disabled {
-  background-color: #f9f9f9;
-  cursor: not-allowed;
-}
-
 .dashboard-container {
   max-width: 1200px;
   width: 100%;
@@ -585,6 +600,20 @@ h1 {
   margin-bottom: 20px;
   padding-bottom: 15px;
   border-bottom: 1px solid #f0f0f0;
+}
+
+.transactions-header {
+  position: relative;
+}
+
+.filter-indicator {
+  font-size: 0.8rem;
+  color: #4CAF50;
+  font-weight: 500;
+  background-color: #e8f5e8;
+  padding: 2px 8px;
+  border-radius: 12px;
+  margin-left: 8px;
 }
 
 .balance {
