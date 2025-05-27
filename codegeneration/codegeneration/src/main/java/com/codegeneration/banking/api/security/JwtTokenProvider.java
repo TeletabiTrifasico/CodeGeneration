@@ -23,7 +23,6 @@ public class JwtTokenProvider {
     @Value("${app.jwt.secret}")
     private String jwtSecret;
 
-
     @Value("${app.jwt.expiration}")
     private int jwtExpirationInMs;
 
@@ -51,7 +50,7 @@ public class JwtTokenProvider {
         // Generate a secure key from the secret
         SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes());
 
-        // Build token
+        // Build token using JJWT 0.11.5 API
         return Jwts.builder()
                 .setSubject(username)
                 .claim("roles", roles)
