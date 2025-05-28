@@ -9,7 +9,7 @@ interface UserState {
     loading: boolean;
     error: string | null;
 }
-const USERS_PER_PAGE = 10; //Should be a constant value
+const USERS_PER_PAGE = 2; //Should be a constant value
 
 export const useUserStore = defineStore('use', {
     state: (): UserState => ({

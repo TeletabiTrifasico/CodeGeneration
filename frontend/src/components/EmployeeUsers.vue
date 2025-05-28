@@ -7,8 +7,21 @@ import { useUserStore } from '@/stores/user.store';
 const authStore = useAuthStore();
 const userStore = useUserStore();
 const isLoading = ref(true);
+let currentPage = 1;
 const error = ref('');
 let pageUsers = {};
+
+async function changePage(changeAmount: number) {
+  isLoading.value = true;
+  currentPage += changeAmount;
+  pageUsers = await userStore.getUsersByPage(currentPage);
+  if (Object.keys(pageUsers).length === 0) {
+    currentPage--;
+    pageUsers = await userStore.getUsersByPage(currentPage);
+    //Add an error message saying next page was empty
+  }
+  isLoading.value = false;
+}
 
 onMounted(async () => {
   // Validate authentication token
@@ -31,6 +44,22 @@ onMounted(async () => {
       <UserItem :user="item"/>
     </div>
   </div>
+  <div class="centered">
+    <button 
+      @click="changePage(-1)"
+      :disabled="currentPage === 1"
+      class="px-3 py-1 border rounded"
+    >
+      &lt;
+    </button>
+    <div>pageNum</div>
+    <button 
+      @click="changePage(1)"
+      class="px-3 py-1 border rounded"
+    >
+      &gt;
+    </button>
+  </div>
   
 </template>
 
@@ -49,5 +78,10 @@ onMounted(async () => {
   width: 14px;
   height: 14px;
   border-width: 2px;
+}
+.centered {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
 }
 </style>

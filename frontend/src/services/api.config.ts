@@ -44,8 +44,7 @@ export const API_ENDPOINTS = {
         transfer: '/transaction/transfer'
     },
     user: {
-        getAll: '/users/getall',
-        byPage: (pageNumber: number, limit: number) => `/users/getPage?page=${pageNumber}&limit=${limit}`,
+        byPage: (pageNumber: number, limit: number) => `/users?page=${pageNumber}&limit=${limit}`,
     },
 };
 

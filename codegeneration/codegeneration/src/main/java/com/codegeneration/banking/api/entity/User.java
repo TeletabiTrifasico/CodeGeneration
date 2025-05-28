@@ -51,6 +51,6 @@ public class User {
     private boolean enabled = true;
 
     //Commented out for now, due to some issues with getting all users and it looping
-    //@OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    //private List<Account> accounts = new ArrayList<>();
+//     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+//     private List<Account> accounts = new ArrayList<>();
 }

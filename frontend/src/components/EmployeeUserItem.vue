@@ -5,10 +5,18 @@ const isLoading = ref(true);
 const error = ref('');
 
 const props = defineProps<{
-  user: object
+  user: {}
 }>();
 </script>
 
 <template>
-  <a href="employeePanel/user"> {{ user }}</a>
+  <a href="employeePanel/user">
+    {{  user }}
+  </a>
 </template>
+
+<style scoped> 
+* {
+  background-color: aqua;
+}
+</style>
