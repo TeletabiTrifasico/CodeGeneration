@@ -1,6 +1,7 @@
 package com.codegeneration.banking.api.entity;
 
 import com.codegeneration.banking.api.enums.Currency;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -72,6 +73,7 @@ public class Account {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonBackReference   // This pairs with @JsonManagedReference on User.accounts
     private User user;
 
     @Column(nullable = false)

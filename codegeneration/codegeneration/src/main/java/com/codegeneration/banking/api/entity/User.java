@@ -1,6 +1,7 @@
 package com.codegeneration.banking.api.entity;
 
 import com.codegeneration.banking.api.enums.UserRole;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -51,6 +52,7 @@ public class User {
     private boolean enabled = true;
 
     //Commented out for now, due to some issues with getting all users and it looping
-//     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-//     private List<Account> accounts = new ArrayList<>();
+     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+     @JsonManagedReference  // Add this annotation to prevent infinite recursion
+     private List<Account> accounts = new ArrayList<>();
 }

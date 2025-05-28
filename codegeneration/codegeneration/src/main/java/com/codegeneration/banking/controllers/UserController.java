@@ -86,7 +86,7 @@ public class UserController extends BaseController {
                 List<UserDTO> userDTOs = userService.getUsersByPage(page, limit).stream()
                     .map(UserDTO::fromEntity)
                     .collect(Collectors.toList());
-
+                
                 UserResponse response = UserResponse.builder()
                     .users(userDTOs)
                     .build();

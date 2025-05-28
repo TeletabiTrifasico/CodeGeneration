@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -32,6 +33,12 @@ public class UserDTO {
                 .email(user.getEmail())
                 .role(user.getRole())
                 .enabled(user.isEnabled())
+                .accounts(
+                    user.getAccounts() == null ? new ArrayList<>() :
+                    user.getAccounts().stream()
+                        .map(AccountDTO::fromEntity)
+                        .collect(Collectors.toList())
+                )
                 .build();
     }
 }
