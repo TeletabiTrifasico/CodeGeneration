@@ -253,12 +253,6 @@ h1 {
   color: #F44336;
 }
 
-.panel-actions {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-}
-
 .action-button {
   padding: 18px;
   background-color: #4CAF50;
@@ -283,10 +277,6 @@ h1 {
 
 .action-button:active {
   transform: translateY(-1px);
-}
-
-.action-icon {
-  font-size: 1.2rem;
 }
 
 /* Responsive Styles */
@@ -316,10 +306,6 @@ h1 {
   h1 {
     font-size: 1.8rem;
   }
-
-  .panel-actions {
-    grid-template-columns: repeat(3, 1fr);
-  }
 }
 
 @media (max-width: 575px) {
@@ -348,67 +334,16 @@ h1 {
     justify-content: center;
   }
 
-  .panel-actions {
-    grid-template-columns: 1fr;
-    gap: 15px;
-  }
-
   .action-button {
     padding: 15px;
   }
 }
 
-/* Tab styling */
-.tabs-container {
-  display: flex;
-  justify-content: flex-start;
-  gap: 20px;
-}
-
-.tab-link {
-  text-decoration: none;
-  color: #555;
-  font-size: 1.1rem;
-  font-weight: 600;
-  padding: 10px 20px;
-  border-radius: 8px 8px 0 0;
-  transition: all 0.3s ease;
-  cursor: pointer;
-  position: relative;
-  border: 2px solid black;
-  border-bottom-color: var(--bg-color);
-  border-bottom-width: 5px;
-}
-
-.tab-link:hover {
-  background-color: #f0f0f0;
-}
-
-.tab-link:focus {
-  outline: none;
-}
-
-.active-tab {
-  border-top-color: green;
-  border-top-width: 5px;
-}
-
-.tab-link:hover:not(.active-tab) {
-  background-color: #f0f0f0;
-}
-
 .panel-container {
-  border: 2px solid black;
+  border: 2px solid #ddd;
   padding: 20px;
   border-radius: 0 0 10px 10px;
   margin-top: -3px;
-}
-
-@media (max-width: 767px) {
-  .tabs-container {
-    flex-direction: column;
-    align-items: flex-start;
-  }
 }
 
 .centered {

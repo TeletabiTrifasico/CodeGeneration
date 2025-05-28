@@ -38,7 +38,7 @@ const routes: Array<RouteRecordRaw> = [
         meta: { requiresAuth: true }
     },
     {
-        path: '/employeePanel/user/',
+        path: '/employeePanel/user/:id',
         name: 'userOverview',
         component: UserOverview,
         meta: { requiresAuth: true }

@@ -14,6 +14,7 @@ const props = defineProps<{
     enabled: true,
     accounts: {
       balance: number;
+      currency: string;
     }[];
   }
 }>();
@@ -22,17 +23,24 @@ const status = computed(() => (props.user.enabled ? 'Active' : 'Disabled'));
 const totalBalance = computed(() =>
   props.user.accounts.reduce((sum, acc) => sum + acc.balance, 0)
 );
+
+const formatCurrency = (amount: number, currency: string): string => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currency,
+  }).format(amount);
+};
 </script>
 
 <template>
-  <a href="employeePanel/user" class="user-card">
+  <RouterLink :to="`/employeePanel/user/${user.id}`" class="user-card">
     <div class="name">{{ user.name }}</div>
     <div class="meta">
       <span>{{ user.accounts.length }} accounts</span>
-      <span>€{{ totalBalance.toFixed(2) }}</span>
+      <span>{{ formatCurrency(totalBalance, user.accounts?.[0]?.currency ?? 'EUR') }}</span>
       <span :class="['status', user.enabled ? 'active' : 'disabled']">{{ status }}</span>
     </div>
-  </a>
+  </RouterLink>
 </template>
 
 <style scoped> 
