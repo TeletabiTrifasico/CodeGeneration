@@ -38,29 +38,6 @@ onMounted(async () => {
 </script>
 
 <template>
-  <span v-if="isLoading" class="spinner small"></span>
-  <div v-else>
-    <div v-for="item in pageUsers">
-      <UserItem :user="item"/>
-    </div>
-  </div>
-  <div class="centered">
-    <button 
-      @click="changePage(-1)"
-      :disabled="currentPage === 1"
-      class="px-3 py-1 border rounded"
-    >
-      &lt;
-    </button>
-    <div>pageNum</div>
-    <button 
-      @click="changePage(1)"
-      class="px-3 py-1 border rounded"
-    >
-      &gt;
-    </button>
-  </div>
-  
 </template>
 
 <style scoped>

@@ -1,35 +1,50 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useAuthStore } from '@/stores/auth.store';
-import EmployeeUsers from '../components/EmployeeUsers.vue'; // Make sure this path is correct
-import EmployeeDefault from '../components/EmployeeDefault.vue'; // Make sure this path is correct
+import { useUserStore } from '@/stores/user.store';
+import UserItem from '../components/EmployeeUserItem.vue';
 
 
 
 // User reactive state
 const authStore = useAuthStore();
+const userStore = useUserStore();
 const user = ref(authStore.currentUser);
 const isLoading = ref(true);
 const error = ref('');
 const currentPanel = ref('default');
+let currentPage = 1;
+let pageUsers = {};
 
 const handleLogout = () => {
   authStore.logout();
 };
-const ChangeTab = (tab) => {
-    console.log(tab);
-    currentPanel.value = tab;
+const refreshData = () => {
+  
+};
+async function changePage(changeAmount: number) {
+  isLoading.value = true;
+  currentPage += changeAmount;
+  pageUsers = await userStore.getUsersByPage(currentPage);
+  if (Object.keys(pageUsers).length === 0) {
+    currentPage--;
+    pageUsers = await userStore.getUsersByPage(currentPage);
+    //Add an error message saying next page was empty
+  }
+  isLoading.value = false;
 }
 
 onMounted(async () => {
   // Validate authentication token
   try {
     await authStore.validateToken();
+    pageUsers = await userStore.getFirstPage();
+    console.log(pageUsers);
   } catch (err) {
     console.error('Token validation error:', err);
     // authStore.logout() will be called in validateToken if it fails
   }
-    isLoading.value = false;
+  isLoading.value = false;
 });
 </script>
 
@@ -56,17 +71,30 @@ onMounted(async () => {
       <button @click="refreshData" class="action-button">Try Again</button>
     </div>
 
-    <div v-else class="panel-content">
-        <div class="tabs-container">
-            <a :class="{'active-tab': currentPanel === 'default'}" class = "tab-link" @click.prevent="ChangeTab('default')" href="#">default</a>
-            <a :class="{'active-tab': currentPanel === 'users'} "class = "tab-link" @click.prevent="ChangeTab('users')" href="#">users</a>
-            <a :class="{'active-tab': currentPanel === 'tab3'} "class = "tab-link" @click.prevent="ChangeTab('tab3')" href="#">3</a>
+    <div v-else class="panel-container">
+      <span v-if="isLoading" class="spinner small"></span>
+        <div v-else>
+          <div v-for="item in pageUsers">
+            <UserItem :user="item"/>
+          </div>
         </div>
-        <div class="panel-container">
-            <div v-if="currentPanel == 'default'"><EmployeeDefault /></div>
-            <div v-else-if="currentPanel == 'users'"><EmployeeUsers /></div>
-            <div v-if="currentPanel == 'tab3'">3</div>
+        <div class="centered">
+          <button 
+            @click="changePage(-1)"
+            :disabled="currentPage === 1"
+            class="px-3 py-1 border rounded"
+          >
+            &lt;
+          </button>
+          <div>{{currentPage}}</div>
+          <button 
+            @click="changePage(1)"
+            class="px-3 py-1 border rounded"
+          >
+            &gt;
+          </button>
         </div>
+        
     </div>
   </div>
 </template>
@@ -100,7 +128,8 @@ h1 {
   gap: 15px;
 }
 
-.refresh-button, .logout-button {
+.refresh-button,
+.logout-button {
   padding: 10px 15px;
   border-radius: 8px;
   font-weight: 500;
@@ -154,7 +183,9 @@ h1 {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .error-panel {
@@ -176,8 +207,12 @@ h1 {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .skeleton-loader {
@@ -188,8 +223,12 @@ h1 {
 }
 
 @keyframes loading {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 .card-loading {
@@ -267,9 +306,6 @@ h1 {
   }
 }
 
-@media (min-width: 768px) and (max-width: 991px) {
-}
-
 @media (min-width: 576px) and (max-width: 767px) {
   .panel-header {
     flex-direction: column;
@@ -284,7 +320,6 @@ h1 {
   .panel-actions {
     grid-template-columns: repeat(3, 1fr);
   }
-
 }
 
 @media (max-width: 575px) {
@@ -307,76 +342,78 @@ h1 {
     width: 100%;
   }
 
-  .refresh-button, .logout-button {
+  .refresh-button,
+  .logout-button {
     flex: 1;
     justify-content: center;
   }
-
 
   .panel-actions {
     grid-template-columns: 1fr;
     gap: 15px;
   }
 
-
   .action-button {
     padding: 15px;
   }
 }
-/* tab styling */
+
+/* Tab styling */
 .tabs-container {
   display: flex;
   justify-content: flex-start;
-  gap: 20px; /* Adjust the gap between the tabs */
+  gap: 20px;
 }
 
 .tab-link {
   text-decoration: none;
-  color: #555; /* Default color */
+  color: #555;
   font-size: 1.1rem;
   font-weight: 600;
   padding: 10px 20px;
-  border-radius: 8px 8px 0px 0px;
-  transition: all 0.3s ease; /* Smooth transition for hover and active states */
+  border-radius: 8px 8px 0 0;
+  transition: all 0.3s ease;
   cursor: pointer;
-  position: relative; /* Positioning for top outline */
-  border: 2px solid black; /* Black border for unselected tabs */
+  position: relative;
+  border: 2px solid black;
   border-bottom-color: var(--bg-color);
   border-bottom-width: 5px;
 }
 
 .tab-link:hover {
-  background-color: #f0f0f0; /* Light hover background */
+  background-color: #f0f0f0;
 }
 
 .tab-link:focus {
-  outline: none; /* Remove outline for better custom focus styling */
+  outline: none;
 }
 
-/* Green outline with gradient for the active tab */
 .active-tab {
   border-top-color: green;
   border-top-width: 5px;
 }
 
-/* Optional: Hover effect for the tabs */
 .tab-link:hover:not(.active-tab) {
-  background-color: #f0f0f0; /* Light hover background */
+  background-color: #f0f0f0;
 }
 
-/* Styling for the panel container */
 .panel-container {
-  border: 2px solid black; /* Black outline around the panel */
+  border: 2px solid black;
   padding: 20px;
-  border-radius: 0px 0px 10px 10px; /* Optional: Add rounded corners to the panel */
+  border-radius: 0 0 10px 10px;
   margin-top: -3px;
 }
 
-/* Responsive Styles */
 @media (max-width: 767px) {
   .tabs-container {
     flex-direction: column;
     align-items: flex-start;
   }
+}
+
+.centered {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
 }
 </style>
