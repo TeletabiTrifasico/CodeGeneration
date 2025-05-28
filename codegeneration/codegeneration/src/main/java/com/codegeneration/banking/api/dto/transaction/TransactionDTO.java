@@ -27,6 +27,7 @@ public class TransactionDTO {
     private String transactionType;
     private String createAt;
     private String completedAt;
+    private Boolean isCurrencyExchange;
 
     @Data
     @Builder
@@ -37,10 +38,15 @@ public class TransactionDTO {
         private String accountNumber;
         private String accountName;
         private String accountType;
+        private Currency currency;
     }
 
     public static TransactionDTO fromEntity(Transaction transaction) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+        // Check if this transaction involved currency exchange
+        boolean isCurrencyExchange = !transaction.getSourceAccount().getCurrency()
+                .equals(transaction.getDestinationAccount().getCurrency());
 
         return TransactionDTO.builder()
                 .id(transaction.getId())
@@ -50,12 +56,14 @@ public class TransactionDTO {
                         .accountNumber(transaction.getSourceAccount().getAccountNumber())
                         .accountName(transaction.getSourceAccount().getAccountName())
                         .accountType(transaction.getSourceAccount().getAccountType())
+                        .currency(transaction.getSourceAccount().getCurrency())
                         .build())
                 .destinationAccount(AccountDTO.builder()
                         .id(transaction.getDestinationAccount().getId())
                         .accountNumber(transaction.getDestinationAccount().getAccountNumber())
                         .accountName(transaction.getDestinationAccount().getAccountName())
                         .accountType(transaction.getDestinationAccount().getAccountType())
+                        .currency(transaction.getDestinationAccount().getCurrency())
                         .build())
                 .amount(transaction.getAmount())
                 .currency(transaction.getCurrency())
@@ -66,6 +74,7 @@ public class TransactionDTO {
                 .completedAt(transaction.getCompletedAt() != null
                         ? transaction.getCompletedAt().format(formatter)
                         : null)
+                .isCurrencyExchange(isCurrencyExchange)
                 .build();
     }
 }

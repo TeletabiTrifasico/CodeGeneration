@@ -7,7 +7,7 @@ import axios from 'axios';
 import { useAuthStore } from '@/stores/auth.store';
 
 // Base API configuration
-export const API_BASE_URL = '/api'; // Will be proxied by Vite
+export const API_BASE_URL = '/api';
 
 // Create a reusable axios instance with common configuration
 export const apiClient = axios.create({
@@ -35,6 +35,23 @@ export interface TransactionFilters {
     transactionType?: string;
     transactionStatus?: string;
     description?: string;
+}
+
+// Currency exchange interfaces
+export interface CurrencyExchange {
+    fromCurrency: string;
+    toCurrency: string;
+    rate: number;
+    originalAmount: number;
+    convertedAmount: number;
+    rateInfo: string;
+}
+
+export interface TransferPreview {
+    transaction?: any;
+    currencyExchangeApplied: boolean;
+    exchangeInfo?: CurrencyExchange;
+    message: string;
 }
 
 // Helper function to build query parameters from filters
@@ -69,7 +86,12 @@ export const API_ENDPOINTS = {
         filter: '/transaction/filter',
         byAccount: (accountNumber: string) => `/transaction/byaccount/${accountNumber}`,
         byAccountFilter: (accountNumber: string) => `/transaction/byaccount/${accountNumber}/filter`,
-        transfer: '/transaction/transfer'
+        transfer: '/transaction/transfer',
+        transferPreview: '/transaction/transfer/preview'
+    },
+    currency: {
+        exchangeRate: '/currency/exchange-rate',
+        convert: '/currency/convert'
     },
     user: {
         getAll: '/users/getall',

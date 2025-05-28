@@ -24,7 +24,13 @@ const sortedTransactions = computed(() => transactionStore.sortedTransactions);
 const accounts = computed(() => accountStore.allAccounts);
 const selectedAccount = computed(() => accountStore.currentAccount);
 const accountBalance = computed(() => accountStore.accountBalance);
-const currentCurrency = computed(() => accountStore.currentCurrency);
+const currentCurrency = computed(() => {
+  // For total balance, always show EUR. For individual account, show account currency
+  return selectedAccount.value ? selectedAccount.value.currency : 'EUR';
+});
+
+// Check if balance is loading
+const isBalanceLoading = computed(() => accountStore.isLoadingTotalBalance);
 
 // Check if filters are active
 const hasActiveFilters = computed(() => transactionStore.hasActiveFilters);
@@ -55,7 +61,7 @@ const fetchDashboardData = async () => {
     isLoading.value = true;
     error.value = '';
 
-    // Fetch accounts first
+    // Fetch accounts first (this will also calculate total balance in EUR)
     await accountStore.fetchAllAccounts();
 
     // Then fetch transactions based on selected account
@@ -105,11 +111,16 @@ const viewAllAccounts = () => {
   transactionStore.clearFilters();
 };
 
-const refreshData = () => {
+const refreshData = async () => {
   if (hasActiveFilters.value) {
-    fetchFilteredData(currentFilters.value);
+    await fetchFilteredData(currentFilters.value);
   } else {
-    fetchDashboardData();
+    await fetchDashboardData();
+  }
+
+  // Also refresh the total balance calculation
+  if (!selectedAccount.value) {
+    await accountStore.refreshTotalBalance();
   }
 };
 
@@ -196,7 +207,6 @@ const closeTransferModal = () => {
 };
 
 const handleTransferComplete = async () => {
-  // Refresh data after successful transfer
   await refreshData();
 };
 
@@ -214,7 +224,6 @@ watch(() => accountStore.currentAccount, async () => {
   }
 });
 
-// Initial setup
 onMounted(async () => {
   try {
     await authStore.validateToken();
@@ -290,15 +299,24 @@ onMounted(async () => {
       </div>
 
       <div class="dashboard-summary">
+        <!-- Account balance card -->
         <div class="summary-card balance-card">
-          <h2>{{ selectedAccount ? selectedAccount.accountName : 'Total Balance' }}</h2>
-          <div v-if="isLoading || accountStore.isLoading" class="card-loading">
+          <h2>
+            {{ selectedAccount ? selectedAccount.accountName : 'Total Balance' }}
+            <span v-if="!selectedAccount" class="base-currency-note">(EUR)</span>
+          </h2>
+          <div v-if="isLoading || accountStore.isLoading || isBalanceLoading" class="card-loading">
             <div class="skeleton-loader balance-skeleton"></div>
           </div>
-          <p v-else class="balance">{{ formatCurrency(accountBalance, currentCurrency) }}</p>
-          <p v-if="selectedAccount" class="account-number-display">
-            Account: {{ selectedAccount.accountNumber }}
-          </p>
+          <div v-else class="balance-display">
+            <p class="balance">{{ formatCurrency(accountBalance, currentCurrency) }}</p>
+          </div>
+          <div class="transfer w-100">
+            <button class="action-button" @click="openTransferModal">
+              <span class="action-icon">↗</span>
+              Transfer Money
+            </button>
+          </div>
         </div>
 
         <!-- Recent transactions card -->
@@ -349,14 +367,6 @@ onMounted(async () => {
             </li>
           </ul>
         </div>
-      </div>
-
-      <!-- Quick actions panel -->
-      <div class="dashboard-actions">
-        <button class="action-button" @click="openTransferModal">
-          <span class="action-icon">↗</span>
-          Transfer Money
-        </button>
       </div>
     </div>
   </div>
@@ -432,6 +442,10 @@ h1 {
 .logout-button:hover {
   background-color: #d32f2f;
   transform: translateY(-2px);
+}
+
+.transfer {
+  margin-top: 100%;
 }
 
 .spinner {
@@ -580,6 +594,8 @@ h1 {
 }
 
 .summary-card {
+  display: flex;
+  flex-direction: column;
   background-color: white;
   border-radius: 12px;
   box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
@@ -602,6 +618,12 @@ h1 {
   border-bottom: 1px solid #f0f0f0;
 }
 
+.base-currency-note {
+  font-size: 0.9rem;
+  color: #666;
+  font-weight: normal;
+}
+
 .transactions-header {
   position: relative;
 }
@@ -616,6 +638,12 @@ h1 {
   margin-left: 8px;
 }
 
+.balance-display {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
 .balance {
   font-size: 2.5rem;
   font-weight: bold;
@@ -623,10 +651,47 @@ h1 {
   margin: 0;
 }
 
+.balance-breakdown {
+  background-color: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  border-left: 4px solid #4CAF50;
+}
+
+.breakdown-note {
+  font-size: 0.9rem;
+  color: #666;
+  margin: 0 0 10px 0;
+  font-weight: 500;
+}
+
+.currency-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.breakdown-item {
+  background-color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: #555;
+  border: 1px solid #e0e0e0;
+  font-weight: 500;
+}
+
 .account-number-display {
   font-size: 1rem;
   color: #777;
   margin-top: 10px;
+}
+
+.exchange-rate-note {
+  font-size: 0.8rem;
+  color: #888;
+  margin-top: 10px;
+  font-style: italic;
 }
 
 .skeleton-loader {
@@ -773,6 +838,7 @@ h1 {
   align-items: center;
   justify-content: center;
   gap: 10px;
+  width: 100%;
 }
 
 .action-button:hover {
@@ -818,6 +884,11 @@ h1 {
   .balance {
     font-size: 2.2rem;
   }
+
+  .currency-breakdown {
+    flex-direction: column;
+    gap: 8px;
+  }
 }
 
 @media (min-width: 576px) and (max-width: 767px) {
@@ -842,6 +913,11 @@ h1 {
 
   .summary-card {
     padding: 25px 20px;
+  }
+
+  .currency-breakdown {
+    flex-direction: column;
+    gap: 8px;
   }
 }
 
@@ -898,6 +974,15 @@ h1 {
 
   .account-item {
     min-width: auto;
+  }
+
+  .currency-breakdown {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .breakdown-item {
+    text-align: center;
   }
 }
 </style>
