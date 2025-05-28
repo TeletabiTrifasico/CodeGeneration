@@ -1,21 +1,26 @@
 ﻿import { defineStore } from 'pinia';
 import { Account } from '@/models';
-import { useAuthStore } from './auth.store.ts';
-import { apiClient, API_ENDPOINTS, getAuthHeader } from '@/services/api.config.ts';
+import { useAuthStore } from './auth.store';
+import { apiClient, API_ENDPOINTS, getAuthHeader } from '@/services/api.config';
+import { currencyService } from '@/services/CurrencyService.ts';
 
 interface AccountState {
     accounts: Account[];
-    selectedAccount: Account | null;
+    currentAccount: Account | null;
     loading: boolean;
     error: string | null;
+    totalBalanceEur: number;
+    isLoadingBalance: boolean;
 }
 
 export const useAccountStore = defineStore('account', {
     state: (): AccountState => ({
         accounts: [],
-        selectedAccount: null,
+        currentAccount: null,
         loading: false,
-        error: null
+        error: null,
+        totalBalanceEur: 0,
+        isLoadingBalance: false
     }),
 
     getters: {
@@ -23,34 +28,40 @@ export const useAccountStore = defineStore('account', {
             return this.accounts;
         },
 
-        currentAccount(): Account | null {
-            return this.selectedAccount;
+        currentCurrency(): string {
+            return this.currentAccount ? this.currentAccount.currency : 'EUR';
         },
 
         accountBalance(): number {
-            if (this.selectedAccount) {
-                return this.selectedAccount.balance;
+            if (this.currentAccount) {
+                // Return balance for selected account in its own currency
+                return this.currentAccount.balance;
+            } else {
+                // Return total balance in EUR
+                return this.totalBalanceEur;
             }
-
-            // If no account is selected, sum up all account balances
-            // TODO: Consider exchange rates for different currencies
-            return this.accounts.reduce((total, account) => total + account.balance, 0);
         },
 
-        currentCurrency(): string {
-            return this.selectedAccount?.currency || 'EUR';
+        accountsBycurrency(): Record<string, Account[]> {
+            return this.accounts.reduce((acc, account) => {
+                if (!acc[account.currency]) {
+                    acc[account.currency] = [];
+                }
+                acc[account.currency].push(account);
+                return acc;
+            }, {} as Record<string, Account[]>);
         },
 
         isLoading(): boolean {
             return this.loading;
+        },
+
+        isLoadingTotalBalance(): boolean {
+            return this.isLoadingBalance;
         }
     },
 
     actions: {
-        setSelectedAccount(account: Account | null) {
-            this.selectedAccount = account;
-        },
-
         async fetchAllAccounts() {
             const authStore = useAuthStore();
 
@@ -63,11 +74,16 @@ export const useAccountStore = defineStore('account', {
                 this.loading = true;
                 this.error = null;
 
-                const response = await apiClient.get(API_ENDPOINTS.account.getAll, {
-                    headers: getAuthHeader()
-                });
+                const response = await apiClient.get(
+                    API_ENDPOINTS.account.getAll,
+                    { headers: getAuthHeader() }
+                );
 
                 this.accounts = response.data.accounts || [];
+
+                // Calculate total balance in EUR after fetching accounts
+                await this.calculateTotalBalanceInEur();
+
                 return this.accounts;
             } catch (error: any) {
                 console.error('Error fetching accounts:', error);
@@ -78,40 +94,76 @@ export const useAccountStore = defineStore('account', {
             }
         },
 
-        async fetchAccountDetails(accountNumber: string) {
-            const authStore = useAuthStore();
-
-            if (!authStore.isLoggedIn) {
-                this.error = 'Not authenticated';
-                return null;
+        async calculateTotalBalanceInEur() {
+            if (this.accounts.length === 0) {
+                this.totalBalanceEur = 0;
+                return;
             }
 
             try {
-                this.loading = true;
-                this.error = null;
+                this.isLoadingBalance = true;
 
-                const response = await apiClient.get(
-                    API_ENDPOINTS.account.details(accountNumber),
-                    { headers: getAuthHeader() }
+                // Convert all account balances to EUR
+                const totalBalance = await currencyService.getTotalBalanceInEur(
+                    this.accounts.map(account => ({
+                        balance: account.balance,
+                        currency: account.currency
+                    }))
                 );
 
-                // Update the account in the accounts array if it exists
-                const accountIndex = this.accounts.findIndex(
-                    acc => acc.accountNumber === accountNumber
-                );
+                this.totalBalanceEur = totalBalance;
+            } catch (error) {
+                console.error('Error calculating total balance in EUR:', error);
 
-                if (accountIndex !== -1) {
-                    this.accounts[accountIndex] = response.data;
-                }
+                // Fallback to simple addition without conversion if API fails
+                this.totalBalanceEur = this.accounts.reduce((total, account) => {
+                    // Use fallback rates
+                    const fallbackRates: Record<string, number> = {
+                        'EUR': 1.0,
+                        'USD': 0.93,
+                        'GBP': 1.16,
+                        'CHF': 1.05,
+                        'PLN': 0.24
+                    };
 
-                return response.data;
-            } catch (error: any) {
-                console.error('Error fetching account details:', error);
-                this.error = error.message || 'Failed to load account details';
-                throw error;
+                    const rate = fallbackRates[account.currency] || 1.0;
+                    return total + (account.balance * rate);
+                }, 0);
             } finally {
-                this.loading = false;
+                this.isLoadingBalance = false;
             }
+        },
+
+        setSelectedAccount(account: Account | null) {
+            this.currentAccount = account;
+        },
+
+        async convertToEur(amount: number, fromCurrency: string): Promise<number> {
+            try {
+                return await currencyService.convertToEur(amount, fromCurrency);
+            } catch (error) {
+                console.error('Error converting to EUR:', error);
+
+                // Fallback rates
+                const fallbackRates: Record<string, number> = {
+                    'EUR': 1.0,
+                    'USD': 0.93,
+                    'GBP': 1.16,
+                    'CHF': 1.05,
+                    'PLN': 0.24
+                };
+
+                const rate = fallbackRates[fromCurrency] || 1.0;
+                return amount * rate;
+            }
+        },
+
+        async refreshTotalBalance() {
+            await this.calculateTotalBalanceInEur();
+        },
+
+        clearCache() {
+            currencyService.clearCache();
         }
     }
 });

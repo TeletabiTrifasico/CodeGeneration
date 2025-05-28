@@ -4,7 +4,9 @@ import { useAuthStore } from '@/stores/auth.store';
 import { useAccountStore } from '@/stores/account.store';
 import { useTransactionStore } from '@/stores/transaction.store';
 import { Account, Transaction } from '@/models';
+import { TransactionFilters } from '@/services/api.config';
 import TransferModal from "@/components/modals/TransferModal.vue";
+import TransactionFilter from "@/components/TransactionFilter.vue";
 
 // Get the stores
 const authStore = useAuthStore();
@@ -14,8 +16,6 @@ const transactionStore = useTransactionStore();
 const isLoading = ref(true);
 const error = ref('');
 const showTransferModal = ref(false);
-const transactionSearch = ref('');
-const transactionAmountSearch = ref(null);
 
 // Get sorted transactions from store
 const sortedTransactions = computed(() => transactionStore.sortedTransactions);
@@ -24,7 +24,17 @@ const sortedTransactions = computed(() => transactionStore.sortedTransactions);
 const accounts = computed(() => accountStore.allAccounts);
 const selectedAccount = computed(() => accountStore.currentAccount);
 const accountBalance = computed(() => accountStore.accountBalance);
-const currentCurrency = computed(() => accountStore.currentCurrency);
+const currentCurrency = computed(() => {
+  // For total balance, always show EUR. For individual account, show account currency
+  return selectedAccount.value ? selectedAccount.value.currency : 'EUR';
+});
+
+// Check if balance is loading
+const isBalanceLoading = computed(() => accountStore.isLoadingTotalBalance);
+
+// Check if filters are active
+const hasActiveFilters = computed(() => transactionStore.hasActiveFilters);
+const currentFilters = computed(() => transactionStore.currentFilters);
 
 // Format helpers
 const formatCurrency = (amount: number, currency: string): string => {
@@ -51,7 +61,7 @@ const fetchDashboardData = async () => {
     isLoading.value = true;
     error.value = '';
 
-    // Fetch accounts first
+    // Fetch accounts first (this will also calculate total balance in EUR)
     await accountStore.fetchAllAccounts();
 
     // Then fetch transactions based on selected account
@@ -68,20 +78,67 @@ const fetchDashboardData = async () => {
   }
 };
 
+const fetchFilteredData = async (filters: TransactionFilters) => {
+  try {
+    isLoading.value = true;
+    error.value = '';
+
+    if (selectedAccount.value) {
+      await transactionStore.fetchFilteredTransactionsByAccount(
+          selectedAccount.value.accountNumber,
+          filters
+      );
+    } else {
+      await transactionStore.fetchFilteredTransactions(filters);
+    }
+  } catch (err: any) {
+    console.error('Error fetching filtered data:', err);
+    error.value = err.message || 'Failed to load filtered data';
+  } finally {
+    isLoading.value = false;
+  }
+};
+
 const selectAccount = (account: Account) => {
   accountStore.setSelectedAccount(account);
+  // Clear filters when switching accounts
+  transactionStore.clearFilters();
 };
 
 const viewAllAccounts = () => {
   accountStore.setSelectedAccount(null);
+  // Clear filters when switching to all accounts view
+  transactionStore.clearFilters();
 };
 
-const refreshData = () => {
-  fetchDashboardData();
+const refreshData = async () => {
+  if (hasActiveFilters.value) {
+    await fetchFilteredData(currentFilters.value);
+  } else {
+    await fetchDashboardData();
+  }
+
+  // Also refresh the total balance calculation
+  if (!selectedAccount.value) {
+    await accountStore.refreshTotalBalance();
+  }
 };
 
 const handleLogout = () => {
   authStore.logout();
+};
+
+const handleFiltersChanged = (filters: TransactionFilters) => {
+  const hasFilters = Object.values(filters).some(value =>
+      value !== undefined && value !== null && value !== ''
+  );
+
+  if (hasFilters) {
+    fetchFilteredData(filters);
+  } else {
+    // No filters, fetch all data
+    fetchDashboardData();
+  }
 };
 
 // Transaction display helpers
@@ -140,7 +197,7 @@ const isPositiveTransaction = (transaction: Transaction): boolean => {
   return true;
 };
 
-// Add these methods to your component
+// Transfer modal methods
 const openTransferModal = () => {
   showTransferModal.value = true;
 };
@@ -150,34 +207,30 @@ const closeTransferModal = () => {
 };
 
 const handleTransferComplete = async () => {
-  // Refresh data after successful transfer
-  await fetchDashboardData();
+  await refreshData();
 };
 
 // Watch for changes to selectedAccount to refresh transactions
 watch(() => accountStore.currentAccount, async () => {
-  if (selectedAccount.value) {
-    await transactionStore.fetchTransactionsByAccount(selectedAccount.value.accountNumber);
+  if (hasActiveFilters.value) {
+    // Re-apply current filters for the new account selection
+    await fetchFilteredData(currentFilters.value);
   } else {
-    await transactionStore.fetchAllTransactions();
+    if (selectedAccount.value) {
+      await transactionStore.fetchTransactionsByAccount(selectedAccount.value.accountNumber);
+    } else {
+      await transactionStore.fetchAllTransactions();
+    }
   }
 });
 
-watch(() => transactionSearch.value, async () => {
-  if(transactionSearch.value) {
-
-  }
-})
-
-// Initial setup
 onMounted(async () => {
-  // Validate authentication token
   try {
     await authStore.validateToken();
     await fetchDashboardData();
   } catch (err) {
     console.error('Token validation error:', err);
-    // authStore.logout() will be called in validateToken if it fails
+    authStore.logout();
   }
 });
 </script>
@@ -248,36 +301,41 @@ onMounted(async () => {
       <div class="dashboard-summary">
         <!-- Account balance card -->
         <div class="summary-card balance-card">
-          <h2>{{ selectedAccount ? selectedAccount.accountName : 'Total Balance' }}</h2>
-          <div v-if="isLoading || accountStore.isLoading" class="card-loading">
+          <h2>
+            {{ selectedAccount ? selectedAccount.accountName : 'Total Balance' }}
+            <span v-if="!selectedAccount" class="base-currency-note">(EUR)</span>
+          </h2>
+          <div v-if="isLoading || accountStore.isLoading || isBalanceLoading" class="card-loading">
             <div class="skeleton-loader balance-skeleton"></div>
           </div>
-          <p v-else class="balance">{{ formatCurrency(accountBalance, currentCurrency) }}</p>
-          <p v-if="selectedAccount" class="account-number-display">
-            Account: {{ selectedAccount.accountNumber }}
-          </p>
+          <div v-else class="balance-display">
+            <p class="balance">{{ formatCurrency(accountBalance, currentCurrency) }}</p>
+          </div>
+          <div class="transfer w-100">
+            <button class="action-button" @click="openTransferModal">
+              <span class="action-icon">↗</span>
+              Transfer Money
+            </button>
+          </div>
         </div>
 
         <!-- Recent transactions card -->
         <div class="summary-card transactions-card">
-          <h2>
-            {{ selectedAccount ? 'Account Transactions' : 'Recent Transactions' }}
-          </h2>
-          <div class="search-card">
-            <input
-                type="text"
-                v-model="transactionSearch"
-                placeholder="Search for transaction"
-                :disabled="isLoading"
-            />
-            <input
-                type="text"
-                v-model="transactionAmountSearch"
-                placeholder="Amount"
-                :disabled="isLoading"
-                class="amount"
-            />
+          <div class="transactions-header">
+            <h2>
+              {{ selectedAccount ? 'Account Transactions' : 'Recent Transactions' }}
+              <span v-if="hasActiveFilters" class="filter-indicator">
+                (Filtered)
+              </span>
+            </h2>
           </div>
+
+          <!-- Transaction Filter Component -->
+          <TransactionFilter
+              :initial-filters="currentFilters"
+              @filters-changed="handleFiltersChanged"
+          />
+
           <div v-if="isLoading || transactionStore.isLoading" class="card-loading">
             <div v-for="i in 4" :key="i" class="skeleton-loader transaction-skeleton">
               <div class="skeleton-line"></div>
@@ -285,7 +343,12 @@ onMounted(async () => {
             </div>
           </div>
           <div v-else-if="sortedTransactions.length === 0" class="no-data">
-            No transactions found.
+            <p v-if="hasActiveFilters">
+              No transactions found matching the current filters.
+            </p>
+            <p v-else>
+              No transactions found.
+            </p>
           </div>
           <ul v-else class="transaction-list">
             <li v-for="transaction in sortedTransactions" :key="transaction.id" class="transaction-item">
@@ -305,14 +368,6 @@ onMounted(async () => {
           </ul>
         </div>
       </div>
-
-      <!-- Quick actions panel -->
-      <div class="dashboard-actions">
-        <button class="action-button" @click="openTransferModal">
-          <span class="action-icon">↗</span>
-          Transfer Money
-        </button>
-      </div>
     </div>
   </div>
   <TransferModal
@@ -324,36 +379,6 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-
-.search-card {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-}
-
-input {
-  padding: 12px 16px;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  font-size: 1rem;
-  transition: border-color 0.2s ease;
-  width: 50%;
-}
-
-input.amount {
-  width: 20%!important;
-}
-
-input:focus {
-  border-color: #4CAF50;
-  outline: none;
-}
-
-input:disabled {
-  background-color: #f9f9f9;
-  cursor: not-allowed;
-}
-
 .dashboard-container {
   max-width: 1200px;
   width: 100%;
@@ -417,6 +442,10 @@ h1 {
 .logout-button:hover {
   background-color: #d32f2f;
   transform: translateY(-2px);
+}
+
+.transfer {
+  margin-top: 100%;
 }
 
 .spinner {
@@ -565,6 +594,8 @@ h1 {
 }
 
 .summary-card {
+  display: flex;
+  flex-direction: column;
   background-color: white;
   border-radius: 12px;
   box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
@@ -587,6 +618,32 @@ h1 {
   border-bottom: 1px solid #f0f0f0;
 }
 
+.base-currency-note {
+  font-size: 0.9rem;
+  color: #666;
+  font-weight: normal;
+}
+
+.transactions-header {
+  position: relative;
+}
+
+.filter-indicator {
+  font-size: 0.8rem;
+  color: #4CAF50;
+  font-weight: 500;
+  background-color: #e8f5e8;
+  padding: 2px 8px;
+  border-radius: 12px;
+  margin-left: 8px;
+}
+
+.balance-display {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
 .balance {
   font-size: 2.5rem;
   font-weight: bold;
@@ -594,10 +651,47 @@ h1 {
   margin: 0;
 }
 
+.balance-breakdown {
+  background-color: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  border-left: 4px solid #4CAF50;
+}
+
+.breakdown-note {
+  font-size: 0.9rem;
+  color: #666;
+  margin: 0 0 10px 0;
+  font-weight: 500;
+}
+
+.currency-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.breakdown-item {
+  background-color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: #555;
+  border: 1px solid #e0e0e0;
+  font-weight: 500;
+}
+
 .account-number-display {
   font-size: 1rem;
   color: #777;
   margin-top: 10px;
+}
+
+.exchange-rate-note {
+  font-size: 0.8rem;
+  color: #888;
+  margin-top: 10px;
+  font-style: italic;
 }
 
 .skeleton-loader {
@@ -744,6 +838,7 @@ h1 {
   align-items: center;
   justify-content: center;
   gap: 10px;
+  width: 100%;
 }
 
 .action-button:hover {
@@ -789,6 +884,11 @@ h1 {
   .balance {
     font-size: 2.2rem;
   }
+
+  .currency-breakdown {
+    flex-direction: column;
+    gap: 8px;
+  }
 }
 
 @media (min-width: 576px) and (max-width: 767px) {
@@ -813,6 +913,11 @@ h1 {
 
   .summary-card {
     padding: 25px 20px;
+  }
+
+  .currency-breakdown {
+    flex-direction: column;
+    gap: 8px;
   }
 }
 
@@ -869,6 +974,15 @@ h1 {
 
   .account-item {
     min-width: auto;
+  }
+
+  .currency-breakdown {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .breakdown-item {
+    text-align: center;
   }
 }
 </style>

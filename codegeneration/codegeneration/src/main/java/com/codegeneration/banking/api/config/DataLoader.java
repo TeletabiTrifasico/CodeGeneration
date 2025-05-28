@@ -93,7 +93,7 @@ public class DataLoader implements CommandLineRunner {
                 .accountType("CHECKING")
                 .balance(new BigDecimal("5000.00"))
                 .currency(Currency.EUR)
-                .dailyTransferLimit(new BigDecimal("10000.00"))
+                .dailyTransferLimit(new BigDecimal("1000.00"))
                 .dailyWithdrawalLimit(new BigDecimal("2000.00"))
                 .singleTransferLimit(new BigDecimal("5000.00"))
                 .singleWithdrawalLimit(new BigDecimal("1000.00"))

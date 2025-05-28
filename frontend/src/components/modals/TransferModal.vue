@@ -3,7 +3,7 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth.store';
 import { useAccountStore } from '@/stores/account.store';
 import { Account } from '@/models';
-import { apiClient, API_ENDPOINTS, getAuthHeader } from '@/services/api.config';
+import { apiClient, API_ENDPOINTS, getAuthHeader, TransferPreview, CurrencyExchange } from '@/services/api.config';
 
 const props = defineProps<{
   show: boolean;
@@ -24,6 +24,11 @@ const description = ref<string>('');
 const isProcessing = ref(false);
 const error = ref<string | null>(null);
 const success = ref<string | null>(null);
+
+// Currency exchange state
+const transferPreview = ref<TransferPreview | null>(null);
+const showExchangeInfo = ref(false);
+const isLoadingPreview = ref(false);
 
 // User search
 const searchTerm = ref<string>('');
@@ -54,6 +59,20 @@ const insufficientFunds = computed(() => {
 const formattedCurrency = computed(() => {
   if (!fromAccount.value) return '';
   return fromAccount.value.currency;
+});
+
+const needsCurrencyConversion = computed(() => {
+  return transferPreview.value?.currencyExchangeApplied || false;
+});
+
+// Check if transfer is to own account (different from source)
+const isOwnAccountTransfer = computed(() => {
+  if (!toAccount.value || !fromAccount.value) return false;
+
+  const isOwn = availableFromAccounts.value.some(acc => acc.accountNumber === toAccount.value);
+  const isDifferent = toAccount.value !== fromAccount.value.accountNumber;
+
+  return isOwn && isDifferent;
 });
 
 // Format currency
@@ -89,6 +108,8 @@ const resetForm = () => {
   searchResults.value = [];
   amountError.value = null;
   toAccountError.value = null;
+  transferPreview.value = null;
+  showExchangeInfo.value = false;
 };
 
 // Close modal
@@ -96,6 +117,48 @@ const closeModal = () => {
   resetForm();
   emit('close');
 };
+
+// Get transfer preview with exchange rate information
+const getTransferPreview = async () => {
+  if (!isFormValid.value) return;
+
+  try {
+    isLoadingPreview.value = true;
+
+    const transferData = {
+      fromAccount: fromAccount.value?.accountNumber,
+      toAccount: toAccount.value,
+      amount: amount.value,
+      description: description.value || 'Transfer'
+    };
+
+    const response = await apiClient.post(
+        API_ENDPOINTS.transaction.transferPreview,
+        transferData,
+        { headers: getAuthHeader() }
+    );
+
+    transferPreview.value = response.data;
+    showExchangeInfo.value = response.data.currencyExchangeApplied;
+
+  } catch (err: any) {
+    console.error('Error getting transfer preview:', err);
+    transferPreview.value = null;
+    showExchangeInfo.value = false;
+  } finally {
+    isLoadingPreview.value = false;
+  }
+};
+
+// Watch for changes that should trigger preview update
+watch([fromAccount, toAccount, amount], () => {
+  if (isFormValid.value) {
+    getTransferPreview();
+  } else {
+    transferPreview.value = null;
+    showExchangeInfo.value = false;
+  }
+});
 
 // Validate amount against limits
 const validateAmount = () => {
@@ -161,27 +224,30 @@ const validateToAccount = async () => {
 
   if (!toAccount.value) return;
 
-  // Check if it's the same as source account
+  // Check if it's the exact same account
   if (fromAccount.value && toAccount.value === fromAccount.value.accountNumber) {
     toAccountError.value = 'Cannot transfer to the same account';
     return;
   }
 
-  // Check if account exists (this could be optional)
+  // Check if account exists and provide helpful info
   try {
     const response = await apiClient.get(
         `${API_ENDPOINTS.account.details}/${toAccount.value}`,
         { headers: getAuthHeader() }
     );
 
-    // Account exists but is your own account (not an error, just info)
-    if (availableFromAccounts.value.some(acc => acc.accountNumber === toAccount.value)) {
-      toAccountError.value = 'This is your own account';
+    // Account exists and is user's own account (but different from source)
+    if (isOwnAccountTransfer.value) {
+      const targetAccount = availableFromAccounts.value.find(acc => acc.accountNumber === toAccount.value);
+      if (targetAccount) {
+        toAccountError.value = `✓ Transfer to your ${targetAccount.accountName} (${targetAccount.currency})`;
+      }
     }
   } catch (err: any) {
     if (err.response && err.response.status === 404) {
-      // Don't set error here because the account might belong to another user
-      // which is valid but the API can't directly access it
+      // Account might belong to another user, which is valid
+      toAccountError.value = null;
     }
   }
 };
@@ -208,7 +274,8 @@ const submitTransfer = async () => {
       fromAccount: fromAccount.value?.accountNumber,
       toAccount: toAccount.value,
       amount: amount.value,
-      description: description.value || 'Transfer'
+      description: description.value || 'Transfer',
+      acceptExchangeRate: needsCurrencyConversion.value
     };
 
     const response = await apiClient.post(
@@ -217,7 +284,8 @@ const submitTransfer = async () => {
         { headers: getAuthHeader() }
     );
 
-    success.value = 'Transfer completed successfully!';
+    const transferResponse = response.data;
+    success.value = transferResponse.message || 'Transfer completed successfully!';
 
     // Refresh accounts after successful transfer
     await accountStore.fetchAllAccounts();
@@ -225,7 +293,7 @@ const submitTransfer = async () => {
     // Reset form after short delay
     setTimeout(() => {
       resetForm();
-      emit('transfer-complete', response.data);
+      emit('transfer-complete', transferResponse);
       emit('close');
     }, 2000);
 
@@ -329,6 +397,7 @@ onMounted(async () => {
                 >
                   <span class="account-name">{{ account.accountName }}</span>
                   <span class="account-number">{{ account.accountNumber }}</span>
+                  <span class="account-currency">{{ account.currency }}</span>
                 </div>
               </div>
 
@@ -338,7 +407,29 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- To Account (Manual Input) -->
+          <!-- Quick select for own accounts -->
+          <div v-if="availableFromAccounts.length > 1" class="form-group">
+            <label>Or select one of your accounts:</label>
+            <div class="own-accounts-grid">
+              <button
+                  v-for="account in availableFromAccounts"
+                  :key="account.id"
+                  type="button"
+                  class="own-account-button"
+                  :class="{ 'selected': toAccount === account.accountNumber, 'disabled': fromAccount && fromAccount.accountNumber === account.accountNumber }"
+                  :disabled="fromAccount && fromAccount.accountNumber === account.accountNumber"
+                  @click="toAccount = account.accountNumber"
+              >
+                <div class="account-info">
+                  <span class="account-name">{{ account.accountName }}</span>
+                  <span class="account-details">{{ account.accountNumber }} • {{ account.currency }}</span>
+                </div>
+                <span class="account-balance">{{ formatCurrency(account.balance, account.currency) }}</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- To Account -->
           <div class="form-group">
             <label for="toAccount">To Account Number</label>
             <input
@@ -349,7 +440,7 @@ onMounted(async () => {
                 :disabled="isProcessing"
                 class="form-control"
             />
-            <div v-if="toAccountError" class="field-info">
+            <div v-if="toAccountError" :class="isOwnAccountTransfer ? 'field-success' : 'field-info'">
               {{ toAccountError }}
             </div>
           </div>
@@ -372,6 +463,38 @@ onMounted(async () => {
             </div>
             <div v-else-if="fromAccount" class="form-info">
               Available: {{ formatCurrency(fromAccount.balance, fromAccount.currency) }}
+            </div>
+          </div>
+
+          <!-- Currency Exchange Information -->
+          <div v-if="showExchangeInfo && transferPreview" class="exchange-info-card">
+            <div class="exchange-header">
+              <h4>💱 Currency Exchange</h4>
+              <div v-if="isLoadingPreview" class="loading-spinner"></div>
+            </div>
+
+            <div v-if="transferPreview.exchangeInfo" class="exchange-details">
+              <div class="exchange-rate">
+                <strong>{{ transferPreview.exchangeInfo.rateInfo }}</strong>
+              </div>
+              <div class="exchange-amounts">
+                <div class="amount-row">
+                  <span>You send:</span>
+                  <span class="amount-value">
+                    {{ formatCurrency(transferPreview.exchangeInfo.originalAmount, transferPreview.exchangeInfo.fromCurrency) }}
+                  </span>
+                </div>
+                <div class="amount-row">
+                  <span>{{ isOwnAccountTransfer ? 'You receive:' : 'Recipient gets:' }}</span>
+                  <span class="amount-value converted">
+                    {{ formatCurrency(transferPreview.exchangeInfo.convertedAmount, transferPreview.exchangeInfo.toCurrency) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="exchange-message">
+              {{ transferPreview.message }}
             </div>
           </div>
 
@@ -403,7 +526,9 @@ onMounted(async () => {
                 :disabled="!isFormValid || isProcessing"
             >
               <span v-if="isProcessing" class="spinner"></span>
-              <span v-else>Transfer</span>
+              <span v-else>
+                {{ needsCurrencyConversion ? 'Confirm Transfer with Exchange' : 'Transfer' }}
+              </span>
             </button>
           </div>
         </form>
@@ -429,7 +554,8 @@ onMounted(async () => {
 
 .modal-container {
   width: 90%;
-  max-width: 500px;
+  max-width: 600px;
+  max-height: 90vh;
   background-color: white;
   border-radius: 12px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
@@ -466,6 +592,8 @@ onMounted(async () => {
 
 .modal-body {
   padding: 25px;
+  max-height: calc(90vh - 100px);
+  overflow-y: auto;
 }
 
 .form-group {
@@ -541,6 +669,74 @@ label {
   font-size: 0.9rem;
 }
 
+.account-currency {
+  color: #4CAF50;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background-color: #e8f5e8;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* Own Accounts Grid */
+.own-accounts-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.own-account-button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 15px;
+  background-color: #f9f9f9;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.own-account-button:hover:not(.disabled) {
+  background-color: #f0f0f0;
+  border-color: #ddd;
+}
+
+.own-account-button.selected {
+  background-color: #e8f5e8;
+  border-color: #4CAF50;
+}
+
+.own-account-button.disabled {
+  background-color: #f5f5f5;
+  color: #999;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.own-account-button .account-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.own-account-button .account-name {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.own-account-button .account-details {
+  font-size: 0.85rem;
+  color: #666;
+  margin-top: 2px;
+}
+
+.own-account-button .account-balance {
+  font-weight: 600;
+  color: #4CAF50;
+}
+
 .search-spinner {
   position: absolute;
   right: 15px;
@@ -560,6 +756,86 @@ label {
   margin-top: 8px;
 }
 
+/* Currency Exchange Information Card */
+.exchange-info-card {
+  background: linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%);
+  border: 1px solid #c8e6c9;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.exchange-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.exchange-header h4 {
+  margin: 0;
+  color: #2e7d32;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(46, 125, 50, 0.2);
+  border-radius: 50%;
+  border-top-color: #2e7d32;
+  animation: spin 1s linear infinite;
+}
+
+.exchange-details {
+  margin-bottom: 15px;
+}
+
+.exchange-rate {
+  text-align: center;
+  margin-bottom: 15px;
+  font-size: 1.1rem;
+  color: #2e7d32;
+}
+
+.exchange-amounts {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.amount-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+}
+
+.amount-value {
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+
+.amount-value.converted {
+  color: #2e7d32;
+}
+
+.exchange-message {
+  font-size: 0.9rem;
+  color: #555;
+  text-align: center;
+  font-style: italic;
+  padding: 10px;
+  background-color: rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
+}
+
 .form-actions {
   display: flex;
   justify-content: flex-end;
@@ -577,7 +853,7 @@ label {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 100px;
+  min-width: 120px;
 }
 
 .button.primary {
@@ -636,6 +912,12 @@ label {
   margin-top: 5px;
 }
 
+.field-success {
+  color: #2e7d32;
+  font-size: 0.85rem;
+  margin-top: 5px;
+}
+
 .form-info {
   color: #757575;
   font-size: 0.85rem;
@@ -686,8 +968,7 @@ label {
 @media (max-width: 576px) {
   .modal-container {
     width: 95%;
-    max-height: 90vh;
-    overflow-y: auto;
+    max-height: 95vh;
   }
 
   .modal-header {
@@ -704,6 +985,18 @@ label {
 
   .button {
     width: 100%;
+  }
+
+  .exchange-amounts {
+    gap: 8px;
+  }
+
+  .amount-row {
+    padding: 6px 10px;
+  }
+
+  .exchange-info-card {
+    padding: 15px;
   }
 }
 </style>

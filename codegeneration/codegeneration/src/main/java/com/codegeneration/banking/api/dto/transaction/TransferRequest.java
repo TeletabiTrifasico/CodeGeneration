@@ -16,4 +16,5 @@ public class TransferRequest {
     private String toAccount;
     private BigDecimal amount;
     private String description;
+    private Boolean acceptExchangeRate;
 }

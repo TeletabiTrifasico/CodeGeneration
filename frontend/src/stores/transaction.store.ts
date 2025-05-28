@@ -1,19 +1,21 @@
 ﻿import { defineStore } from 'pinia';
 import { Transaction } from '@/models';
 import { useAuthStore } from './auth.store';
-import { apiClient, API_ENDPOINTS, getAuthHeader } from '@/services/api.config';
+import { apiClient, API_ENDPOINTS, getAuthHeader, TransactionFilters, buildFilterParams } from '@/services/api.config';
 
 interface TransactionState {
     transactions: Transaction[];
     loading: boolean;
     error: string | null;
+    currentFilters: TransactionFilters;
 }
 
 export const useTransactionStore = defineStore('transaction', {
     state: (): TransactionState => ({
         transactions: [],
         loading: false,
-        error: null
+        error: null,
+        currentFilters: {}
     }),
 
     getters: {
@@ -31,6 +33,11 @@ export const useTransactionStore = defineStore('transaction', {
 
         isLoading(): boolean {
             return this.loading;
+        },
+
+        hasActiveFilters(): boolean {
+            return Object.keys(this.currentFilters).length > 0 &&
+                Object.values(this.currentFilters).some(value => value !== undefined && value !== null && value !== '');
         }
     },
 
@@ -46,6 +53,7 @@ export const useTransactionStore = defineStore('transaction', {
             try {
                 this.loading = true;
                 this.error = null;
+                this.currentFilters = {};
 
                 const response = await apiClient.get(
                     API_ENDPOINTS.transaction.getAll,
@@ -74,6 +82,7 @@ export const useTransactionStore = defineStore('transaction', {
             try {
                 this.loading = true;
                 this.error = null;
+                this.currentFilters = {};
 
                 const response = await apiClient.get(
                     API_ENDPOINTS.transaction.byAccount(accountNumber),
@@ -89,6 +98,72 @@ export const useTransactionStore = defineStore('transaction', {
             } finally {
                 this.loading = false;
             }
+        },
+
+        async fetchFilteredTransactions(filters: TransactionFilters) {
+            const authStore = useAuthStore();
+
+            if (!authStore.isLoggedIn) {
+                this.error = 'Not authenticated';
+                return [];
+            }
+
+            try {
+                this.loading = true;
+                this.error = null;
+                this.currentFilters = { ...filters };
+
+                const params = buildFilterParams(filters);
+                const url = `${API_ENDPOINTS.transaction.filter}?${params.toString()}`;
+
+                const response = await apiClient.get(url, { headers: getAuthHeader() });
+
+                this.transactions = response.data.transactions || [];
+                return this.transactions;
+            } catch (error: any) {
+                console.error('Error fetching filtered transactions:', error);
+                this.error = error.message || 'Failed to load filtered transactions';
+                throw error;
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async fetchFilteredTransactionsByAccount(accountNumber: string, filters: TransactionFilters) {
+            const authStore = useAuthStore();
+
+            if (!authStore.isLoggedIn) {
+                this.error = 'Not authenticated';
+                return [];
+            }
+
+            try {
+                this.loading = true;
+                this.error = null;
+                this.currentFilters = { ...filters };
+
+                const params = buildFilterParams(filters);
+                const url = `${API_ENDPOINTS.transaction.byAccountFilter(accountNumber)}?${params.toString()}`;
+
+                const response = await apiClient.get(url, { headers: getAuthHeader() });
+
+                this.transactions = response.data.transactions || [];
+                return this.transactions;
+            } catch (error: any) {
+                console.error('Error fetching filtered account transactions:', error);
+                this.error = error.message || 'Failed to load filtered account transactions';
+                throw error;
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        clearFilters() {
+            this.currentFilters = {};
+        },
+
+        setFilters(filters: TransactionFilters) {
+            this.currentFilters = { ...filters };
         }
     }
 });
