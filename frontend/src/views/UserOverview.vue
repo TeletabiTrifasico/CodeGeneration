@@ -10,7 +10,7 @@ import { useRoute } from 'vue-router';
 // User reactive state
 const authStore = useAuthStore();
 const userStore = useUserStore();
-const user = ref(authStore.currentUser);
+let user = {};
 const isLoading = ref(true);
 const error = ref('');
 const currentPanel = ref('default');
@@ -23,23 +23,12 @@ const handleLogout = () => {
 const refreshData = () => {
   
 };
-async function changePage(changeAmount: number) {
-  isLoading.value = true;
-  currentPage += changeAmount;
-  pageUsers = await userStore.getUsersByPage(currentPage);
-  if (Object.keys(pageUsers).length === 0) {
-    currentPage--;
-    pageUsers = await userStore.getUsersByPage(currentPage);
-    //Add an error message saying next page was empty
-  }
-  isLoading.value = false;
-}
 
 onMounted(async () => {
   // Validate authentication token
   try {
     await authStore.validateToken();
-    pageUsers = await userStore.getFirstPage();
+    user = await userStore.getUserById(Number(userId));
     console.log(pageUsers);
   } catch (err) {
     console.error('Token validation error:', err);
@@ -56,7 +45,7 @@ const userId = route.params.id;
     <!-- Header with user info and actions -->
     <header class="panel-header">
       <div class="user-welcome">
-        <h1>Welcome, employee {{ user ? user.name : 'User' }}! {{ userId }}</h1>
+        <h1>{{ userId }}</h1>
       </div>
       <div class="header-actions">
         <button @click="refreshData" class="refresh-button" :disabled="isLoading">
@@ -77,27 +66,8 @@ const userId = route.params.id;
     <div v-else class="panel-container">
       <span v-if="isLoading" class="spinner small"></span>
         <div v-else>
-          <div v-for="item in pageUsers">
-            <UserItem :user="item"/>
-          </div>
-        </div>
-        <div class="centered">
-          <button 
-            @click="changePage(-1)"
-            :disabled="currentPage === 1"
-            class="px-3 py-1 border rounded"
-          >
-            &lt;
-          </button>
-          <div>{{currentPage}}</div>
-          <button 
-            @click="changePage(1)"
-            class="px-3 py-1 border rounded"
-          >
-            &gt;
-          </button>
-        </div>
-        
+          {{ user }}
+        </div>        
     </div>
   </div>
 </template>

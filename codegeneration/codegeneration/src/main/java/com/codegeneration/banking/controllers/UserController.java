@@ -104,4 +104,38 @@ public class UserController extends BaseController {
             throw e;
         }
     }
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getUserById(@PathVariable Number id) {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+            if (authentication == null || !authentication.isAuthenticated()) {
+                log.warn("No authentication found for GET /transaction/getall");
+                return ResponseEntity.status(401).build();
+            }
+
+            String username = authentication.getName();
+            log.info("Processing GET /users/getall for user: {}", username);
+            try {
+                List<UserDTO> userDTO = userService.getUserById(id).stream()
+                        .map(UserDTO::fromEntity)
+                        .collect(Collectors.toList());
+
+                UserResponse response = UserResponse.builder()
+                        .users(userDTO)
+                        .build();
+
+                return ResponseEntity.ok(response);
+            }
+            catch(ResponseStatusException e) {
+                log.info(e.getMessage());
+                log.info(String.valueOf(e.getStatusCode().value()));
+                //HttpStatusCode test = e.getStatusCode().value();
+                return ResponseEntity.status(e.getStatusCode().value()).body(e.getReason());
+            }
+        } catch (Exception e) {
+            log.error("Error in GET /users", e);
+            throw e;
+        }
+    }
 }

@@ -58,4 +58,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * @return List of users matching the search criteria
      */
     List<User> findByNameContainingIgnoreCase(String name);
+
+    /**
+     * Find users by name (partial match, case insensitive)
+     *
+     * @param id The id to search for
+     * @return User matching specified id
+     */
+    List<User> findById(Number id);
 }

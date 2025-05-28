@@ -44,4 +44,12 @@ public class UserServiceImpl implements UserService {
         Pageable pageable = PageRequest.of(pageNumber.intValue()-1, limit.intValue());
         return userRepository.findAll(pageable).getContent();
     }
+    @Override
+    @Transactional(readOnly = true)
+    public List<User> getUserById(Number id) {
+        if (id.intValue() < 1) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Can not request a user with an id less than 1");
+        }
+        return userRepository.findById(id);
+    }
 }

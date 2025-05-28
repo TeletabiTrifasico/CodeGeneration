@@ -8,18 +8,26 @@ import com.codegeneration.banking.api.entity.User;
 public interface UserService {
 
     /**
-     * Get all transactions for a user across all their accounts
+     * Get all users
      *
      * @return List of users
      */
     List<User> getAllUsers();
 
     /**
-     * Get transactions for a specific account
+     * Get users through pagination
      *
      * @param pageNumber the page to get users from
      * @param limit the amount of users per page
      * @return List of transactions
      */
     List<User> getUsersByPage(Number pageNumber, Number limit);
+
+    /**
+     * Get user based on id
+     *
+     * @param id the user's id
+     * @return List with user
+     */
+    List<User> getUserById(Number id);
 }
