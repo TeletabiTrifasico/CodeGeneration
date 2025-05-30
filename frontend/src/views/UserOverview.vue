@@ -23,6 +23,12 @@ const handleLogout = () => {
 const refreshData = () => {
   
 };
+// You can replace these with actual implementations or router navigations
+const openActivateAccounts = () => alert('Open activate accounts UI');
+const openTransferLimits = () => alert('Open transfer limits UI');
+const openTransferFunds = () => alert('Open transfer funds UI');
+const openTransactions = () => alert('Open transactions UI');
+const openCreateAccount = () => alert('Open create account UI');
 
 onMounted(async () => {
   // Validate authentication token
@@ -41,287 +47,144 @@ const userId = route.params.id;
 </script>
 
 <template>
-  <div class="view-container">
-    <!-- Header with user info and actions -->
-    <header class="panel-header">
-      <div class="user-welcome">
-        <h1>{{ userId }}</h1>
-      </div>
-      <div class="header-actions">
-        <button @click="refreshData" class="refresh-button" :disabled="isLoading">
-          <span v-if="isLoading" class="spinner small"></span>
-          <span v-else>↻</span>
-          Refresh
-        </button>
-        <button @click="handleLogout" class="logout-button">Logout</button>
-      </div>
-    </header>
+    <div>
+    <div class="view-container">
+      <!-- Header with user info and actions -->
+      <header class="panel-header">
+        <div class="user-welcome">
+          <h1>{{ userId }}</h1>
+        </div>
+        <div class="header-actions">
+          <button @click="refreshData" class="refresh-button" :disabled="isLoading">
+            <span v-if="isLoading" class="spinner small"></span>
+            <span v-else>↻</span>
+            Refresh
+          </button>
+          <button @click="handleLogout" class="logout-button">Logout</button>
+        </div>
+      </header>
 
-    <!-- Main panel content -->
-    <div v-if="error" class="error-panel">
-      <p>{{ error }}</p>
-      <button @click="refreshData" class="action-button">Try Again</button>
-    </div>
+      <!-- Main panel content -->
+      <div v-if="error" class="error-panel">
+        <p>{{ error }}</p>
+        <button @click="refreshData" class="action-button">Try Again</button>
+      </div>
 
-    <div v-else class="panel-container">
-      <span v-if="isLoading" class="spinner small"></span>
-        <div v-else>
-          {{ user }}
-        </div>        
+      <div v-else class="panel-container">
+        <span v-if="isLoading" class="spinner small"></span>
+          <div v-else>
+            {{ user }}
+          </div>        
+      </div>
     </div>
+    <section class="employee-overview">
+
+      <!-- Activate Customer Accounts -->
+      <section class="task-section">
+        <!--<h3>Activate Customer Accounts</h3>-->
+        <div class="data-display">
+          <p>Active accounts: 24</p>
+          <p>Inactive accounts: 8</p>
+        </div>
+        <button @click="openActivateAccounts" class="action-btn">Manage Account Activation</button>
+      </section>
+
+      <!-- Set Transfer Limits -->
+      <section class="task-section">
+        <h3>Set Transfer Limits</h3>
+        <div class="data-display">
+          <p>Daily limit: $10,000</p>
+          <p>Absolute limit: $50,000</p>
+        </div>
+        <button @click="openTransferLimits" class="action-btn">Edit Transfer Limits</button>
+      </section>
+
+      <!-- Transfer Funds Between Accounts -->
+      <section class="task-section">
+        <h3>Transfer Funds Between Accounts</h3>
+        <div class="data-display">
+          <p>Recent transfer: $500 from Account A to Account B</p>
+        </div>
+        <button @click="openTransferFunds" class="action-btn">Make a Transfer</button>
+      </section>
+
+      <!-- View All Transactions -->
+      <section class="task-section">
+        <h3>View All Transactions</h3>
+        <div class="data-display">
+          <p>Last 5 transactions:</p>
+          <ul>
+            <li>Transaction 1 - $200</li>
+            <li>Transaction 2 - $1000</li>
+            <li>Transaction 3 - $50</li>
+            <li>Transaction 4 - $750</li>
+            <li>Transaction 5 - $300</li>
+          </ul>
+        </div>
+        <button @click="openTransactions" class="action-btn">View Full Transaction History</button>
+      </section>
+
+      <!-- Create Accounts for Customers -->
+      <section class="task-section">
+        <h3>Create Accounts for Customers</h3>
+        <p>Number of new accounts created this month: 5</p>
+        <button @click="openCreateAccount" class="action-btn">Create New Account</button>
+      </section>
+
+    </section>
   </div>
 </template>
 
+
 <style scoped>
-.view-container {
-  max-width: 1200px;
-  width: 100%;
+.employee-overview {
+  max-width: 900px;
   margin: 0 auto;
-  padding: 30px 20px;
-}
-
-.panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 40px;
-  flex-wrap: wrap;
-  gap: 20px;
-}
-
-h1 {
-  margin: 0;
+  padding: 20px 30px;
+  font-family: Arial, sans-serif;
   color: #333;
-  font-size: 2rem;
-  font-weight: 600;
 }
 
-.header-actions {
-  display: flex;
-  gap: 15px;
-}
-
-.refresh-button,
-.logout-button {
-  padding: 10px 15px;
-  border-radius: 8px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.refresh-button {
-  background-color: #f5f5f5;
-  color: #333;
+.task-section {
+  background: #fff;
   border: 1px solid #ddd;
-}
-
-.refresh-button:hover:not(:disabled) {
-  background-color: #e8e8e8;
-}
-
-.refresh-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.logout-button {
-  background-color: #f44336;
-  color: white;
-  border: none;
-}
-
-.logout-button:hover {
-  background-color: #d32f2f;
-  transform: translateY(-2px);
-}
-
-.spinner {
-  display: inline-block;
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(0, 0, 0, 0.1);
-  border-radius: 50%;
-  border-top-color: #333;
-  animation: spin 1s linear infinite;
-}
-
-.spinner.small {
-  width: 14px;
-  height: 14px;
-  border-width: 2px;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.error-panel {
-  background-color: #ffebee;
   border-radius: 8px;
-  padding: 30px;
-  text-align: center;
-  margin-bottom: 30px;
+  padding: 20px 25px;
+  margin-bottom: 25px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
 
-.error-panel p {
-  color: #d32f2f;
-  margin-bottom: 20px;
-  font-size: 1.1rem;
+.task-section h3 {
+  margin-top: 0;
+  color: #4caf50;
+  font-weight: 700;
+  font-size: 1.4rem;
+  margin-bottom: 12px;
 }
 
-.panel-content {
-  animation: fadeIn 0.5s ease;
+.data-display {
+  margin-bottom: 15px;
+  font-size: 1rem;
+  color: #444;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+.data-display ul {
+  padding-left: 20px;
+  margin: 8px 0;
 }
 
-.skeleton-loader {
-  background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
-  background-size: 200% 100%;
-  animation: loading 1.5s infinite;
-  border-radius: 4px;
-}
-
-@keyframes loading {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
-}
-
-.card-loading {
-  min-height: 100px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.no-data {
-  color: #888;
-  padding: 30px 0;
-  text-align: center;
-  font-size: 1.1rem;
-}
-
-.positive {
-  color: #4CAF50;
-}
-
-.negative {
-  color: #F44336;
-}
-
-.action-button {
-  padding: 18px;
-  background-color: #4CAF50;
+.action-btn {
+  background-color: #4caf50;
   color: white;
   border: none;
-  border-radius: 10px;
-  font-size: 1.1rem;
-  font-weight: 500;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-size: 1rem;
   cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
+  transition: background-color 0.3s ease;
 }
 
-.action-button:hover {
+.action-btn:hover {
   background-color: #43a047;
-  transform: translateY(-3px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
-}
-
-.action-button:active {
-  transform: translateY(-1px);
-}
-
-/* Responsive Styles */
-@media (min-width: 1400px) {
-  .view-container {
-    padding: 50px 20px;
-  }
-
-  h1 {
-    font-size: 2.4rem;
-  }
-}
-
-@media (min-width: 992px) and (max-width: 1399px) {
-  .view-container {
-    padding: 40px 20px;
-  }
-}
-
-@media (min-width: 576px) and (max-width: 767px) {
-  .panel-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 15px;
-  }
-
-  h1 {
-    font-size: 1.8rem;
-  }
-}
-
-@media (max-width: 575px) {
-  .view-container {
-    padding: 20px 15px;
-  }
-
-  .panel-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 15px;
-    margin-bottom: 30px;
-  }
-
-  h1 {
-    font-size: 1.7rem;
-  }
-
-  .header-actions {
-    width: 100%;
-  }
-
-  .refresh-button,
-  .logout-button {
-    flex: 1;
-    justify-content: center;
-  }
-
-  .action-button {
-    padding: 15px;
-  }
-}
-
-.panel-container {
-  border: 2px solid #ddd;
-  padding: 20px;
-  border-radius: 0 0 10px 10px;
-  margin-top: -3px;
-}
-
-.centered {
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
 }
 </style>

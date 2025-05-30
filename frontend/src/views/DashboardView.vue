@@ -314,13 +314,13 @@ onMounted(async () => {
         </button>
       </div>
     </div>
-  </div>
   <TransferModal
       :show="showTransferModal"
       :selected-account="selectedAccount"
       @close="closeTransferModal"
       @transfer-complete="handleTransferComplete"
   />
+  </div>
 </template>
 
 <style scoped>
