@@ -100,9 +100,18 @@ public class AccountController extends BaseController {
         String username = authentication.getName();
         log.info("Processing GET /account/details/{} for user: {}", accountNumber, username);
 
+        // First try to get account if it belongs to the user
         Account account = accountService.getAccountByNumberAndUsername(accountNumber, username);
-        AccountDTO accountDTO = AccountDTO.fromEntity(account);
 
+        // If not found, try to get account details without ownership check (for transfers)
+        if (account == null) {
+            account = accountService.getAccountByNumber(accountNumber);
+            if (account == null) {
+                return ResponseEntity.notFound().build();
+            }
+        }
+
+        AccountDTO accountDTO = AccountDTO.fromEntity(account);
         return ResponseEntity.ok(accountDTO);
     }
 
@@ -124,7 +133,7 @@ public class AccountController extends BaseController {
         return ResponseEntity.ok(response);
     }
 
-    @Operation(summary = "Search for accounts by username", description = "Returns accounts matching the search term")
+    @Operation(summary = "Search for accounts by username", description = "Returns accounts matching the search term, including user's own accounts")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Successfully searched accounts",
                     content = @Content(schema = @Schema(implementation = AccountResponse.class))),
@@ -149,15 +158,32 @@ public class AccountController extends BaseController {
                 return ResponseEntity.ok(new AccountResponse(List.of()));
             }
 
-            // Find users by name
+            // Find accounts by username search
             List<Account> accounts = accountService.searchAccountsByUsername(searchTerm.trim());
 
-            // Filter out the current user's accounts
-            accounts = accounts.stream()
-                    .filter(account -> !account.getUser().getUsername().equals(username))
-                    .collect(Collectors.toList());
+            // Get current user's accounts to include them in results
+            List<Account> currentUserAccounts = accountService.getAccountsByUsername(username);
 
-            List<AccountDTO> accountDTOs = accounts.stream()
+            // Combine results - include user's own accounts if they match the search term
+            List<Account> allResults = new ArrayList<>(accounts);
+
+            // Add user's own accounts if the search term matches their username or name
+            String searchTermLower = searchTerm.trim().toLowerCase();
+            if (username.toLowerCase().contains(searchTermLower) ||
+                    (currentUserAccounts.size() > 0 &&
+                            currentUserAccounts.get(0).getUser().getName().toLowerCase().contains(searchTermLower))) {
+
+                // Add user's own accounts that aren't already in the results
+                for (Account userAccount : currentUserAccounts) {
+                    boolean alreadyExists = allResults.stream()
+                            .anyMatch(acc -> acc.getAccountNumber().equals(userAccount.getAccountNumber()));
+                    if (!alreadyExists) {
+                        allResults.add(userAccount);
+                    }
+                }
+            }
+
+            List<AccountDTO> accountDTOs = allResults.stream()
                     .map(AccountDTO::fromEntity)
                     .collect(Collectors.toList());
 
@@ -168,5 +194,4 @@ public class AccountController extends BaseController {
             throw e;
         }
     }
-
 }
