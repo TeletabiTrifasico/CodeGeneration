@@ -10,49 +10,71 @@ import { useRoute } from 'vue-router';
 // User reactive state
 const authStore = useAuthStore();
 const userStore = useUserStore();
-let user = {};
 const isLoading = ref(true);
 const error = ref('');
-const currentPanel = ref('default');
-let currentPage = 1;
-let pageUsers = {};
+const route = useRoute();
+const userId = route.params.id;
+let selectedAccount = null;
+
+let user = {
+  id: Number,
+  username: String,
+  name: String,
+  email: String,
+  enabled: true,
+  accounts: [] as Account[]
+};
+
+interface Account {
+  id: Number,
+  accountName: String,
+  accountNumber: String,
+  accountType: String,
+  balance: Number,
+  currency: String,
+  dailyTransferLimit: Number,
+  dailyWithdrawalLimit: Number,
+  lastLimitResetDate: String,
+  singleTransferLimit: Number,
+  singleWithdrawalLimit: Number,
+}
+
 
 const handleLogout = () => {
   authStore.logout();
 };
-const refreshData = () => {
-  
+const selectAccount = (accountId: Number) => {
+  selectedAccount = user.accounts.filter(acc => acc.id === accountId)
 };
-// You can replace these with actual implementations or router navigations
-const openActivateAccounts = () => alert('Open activate accounts UI');
-const openTransferLimits = () => alert('Open transfer limits UI');
-const openTransferFunds = () => alert('Open transfer funds UI');
-const openTransactions = () => alert('Open transactions UI');
-const openCreateAccount = () => alert('Open create account UI');
 
 onMounted(async () => {
   // Validate authentication token
   try {
     await authStore.validateToken();
     user = await userStore.getUserById(Number(userId));
-    console.log(pageUsers);
+    if (user.accounts.length > 0) {
+      selectedAccount = user.accounts[0];
+    }
   } catch (err) {
     console.error('Token validation error:', err);
     // authStore.logout() will be called in validateToken if it fails
   }
   isLoading.value = false;
 });
-const route = useRoute();
-const userId = route.params.id;
+
+const formatCurrency = (amount: number, currency: string): string => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currency,
+  }).format(amount);
+};
 </script>
 
 <template>
-    <div>
     <div class="view-container">
       <!-- Header with user info and actions -->
       <header class="panel-header">
         <div class="user-welcome">
-          <h1>{{ userId }}</h1>
         </div>
         <div class="header-actions">
           <button @click="refreshData" class="refresh-button" :disabled="isLoading">
@@ -71,120 +93,176 @@ const userId = route.params.id;
       </div>
 
       <div v-else class="panel-container">
-        <span v-if="isLoading" class="spinner small"></span>
-          <div v-else>
-            {{ user }}
-          </div>        
+        <span v-if="isLoading" class="spinner small"></span>      
+      </div>
+      <div class="accounts-panel">
+        <div class="accounts-header">
+          <h2>{{ user.name }}'s Accounts</h2>
+        </div>
+
+        <div v-if="isLoading" class="card-loading">
+          <div v-for="i in 3" :key="i" class="skeleton-loader account-skeleton"></div>
+        </div>
+        <!-- Currently causes issues because user.accounts might not be given a value yet-->
+        <div v-else-if="user.accounts.length < 1" class="no-data">
+          No accounts found.
+        </div>
+        <div v-if="!isLoading && user.accounts.length" class="accounts-container">
+          <ul v-if="!isLoading && user.accounts.length > 0" class="accounts-list">
+          <li
+              v-for="account in user.accounts"
+              :key="account.id"
+              class="account-item"
+              @click="selectAccount(account.id)"
+          >
+            <div class="account-info">
+              <span class="account-name">{{ account.accountName }}</span>
+              <span class="account-number">{{ account.accountNumber }}</span>
+              <span class="account-type">{{ account.accountType }}</span>
+            </div>
+            <span class="account-balance">
+              {{ formatCurrency(account.balance, account.currency) }}
+            </span>
+          </li>
+          </ul>
+          <div class="editButtons">
+            {{ selectedAccount}}
+            <div><button class="action-button">Edit daily transfer limit</button><div>Daily transfer limit: {{ selectedAccount.dailyTransferLimit }}</div></div>
+            <div><button class="action-button">Edit single transfer limit</button><div>Single transfer limit: {{ selectedAccount.singleTransferLimit }}</div></div>
+          </div>
+        </div>
       </div>
     </div>
-    <section class="employee-overview">
-
-      <!-- Activate Customer Accounts -->
-      <section class="task-section">
-        <!--<h3>Activate Customer Accounts</h3>-->
-        <div class="data-display">
-          <p>Active accounts: 24</p>
-          <p>Inactive accounts: 8</p>
-        </div>
-        <button @click="openActivateAccounts" class="action-btn">Manage Account Activation</button>
-      </section>
-
-      <!-- Set Transfer Limits -->
-      <section class="task-section">
-        <h3>Set Transfer Limits</h3>
-        <div class="data-display">
-          <p>Daily limit: $10,000</p>
-          <p>Absolute limit: $50,000</p>
-        </div>
-        <button @click="openTransferLimits" class="action-btn">Edit Transfer Limits</button>
-      </section>
-
-      <!-- Transfer Funds Between Accounts -->
-      <section class="task-section">
-        <h3>Transfer Funds Between Accounts</h3>
-        <div class="data-display">
-          <p>Recent transfer: $500 from Account A to Account B</p>
-        </div>
-        <button @click="openTransferFunds" class="action-btn">Make a Transfer</button>
-      </section>
-
-      <!-- View All Transactions -->
-      <section class="task-section">
-        <h3>View All Transactions</h3>
-        <div class="data-display">
-          <p>Last 5 transactions:</p>
-          <ul>
-            <li>Transaction 1 - $200</li>
-            <li>Transaction 2 - $1000</li>
-            <li>Transaction 3 - $50</li>
-            <li>Transaction 4 - $750</li>
-            <li>Transaction 5 - $300</li>
-          </ul>
-        </div>
-        <button @click="openTransactions" class="action-btn">View Full Transaction History</button>
-      </section>
-
-      <!-- Create Accounts for Customers -->
-      <section class="task-section">
-        <h3>Create Accounts for Customers</h3>
-        <p>Number of new accounts created this month: 5</p>
-        <button @click="openCreateAccount" class="action-btn">Create New Account</button>
-      </section>
-
-    </section>
-  </div>
 </template>
 
 
 <style scoped>
-.employee-overview {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 20px 30px;
-  font-family: Arial, sans-serif;
+/* Accounts Panel */
+.accounts-panel {
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+  padding: 25px;
+  margin-bottom: 30px;
+  transition: all 0.3s ease;
+}
+
+.accounts-panel:hover {
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+.accounts-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.accounts-header h2 {
+  font-size: 1.4rem;
+  color: #555;
+  margin: 0;
+}
+.accounts-container {
+  display:flex;
+
+}
+.editButtons {
+  margin:10px;
+}
+.accounts-list {
+  flex-direction: column;
+}
+
+.account-item {
+  flex: 1;
+  min-width: 250px;
+  width: 50%;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  padding: 15px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.account-item:hover {
+  background-color: #f0f0f0;
+  transform: translateY(-3px);
+}
+
+.account-item.selected {
+  border-color: #4CAF50;
+  background-color: #f0f8f0;
+}
+.account-info {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 10px;
+}
+.account-name {
+  font-weight: 600;
+  font-size: 1.1rem;
   color: #333;
 }
-
-.task-section {
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 20px 25px;
-  margin-bottom: 25px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+.account-number {
+  font-size: 0.9rem;
+  color: #777;
+  margin-top: 4px;
 }
-
-.task-section h3 {
-  margin-top: 0;
-  color: #4caf50;
-  font-weight: 700;
-  font-size: 1.4rem;
-  margin-bottom: 12px;
+.account-type {
+  font-size: 0.8rem;
+  color: #999;
+  margin-top: 2px;
+  font-style: italic;
 }
-
-.data-display {
+.account-balance {
+  display: block;
+  font-weight: 600;
+  font-size: 1.2rem;
+  color: #4CAF50;
+  margin-top: 5px;
+}
+.skeleton-loader {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+  border-radius: 4px;
+}
+.account-skeleton {
+  height: 80px;
   margin-bottom: 15px;
-  font-size: 1rem;
-  color: #444;
+}
+.no-data {
+  color: #888;
+  padding: 30px 0;
+  text-align: center;
+  font-size: 1.1rem;
 }
 
-.data-display ul {
-  padding-left: 20px;
-  margin: 8px 0;
-}
-
-.action-btn {
-  background-color: #4caf50;
+.action-button {
+  padding: 18px;
+  background-color: #4CAF50;
   color: white;
   border: none;
-  border-radius: 8px;
-  padding: 10px 18px;
-  font-size: 1rem;
+  border-radius: 10px;
+  font-size: 1.1rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 50%;
 }
 
-.action-btn:hover {
+.action-button:hover {
   background-color: #43a047;
+  transform: translateY(-3px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+}
+
+.action-button:active {
+  transform: translateY(-1px);
 }
 </style>
