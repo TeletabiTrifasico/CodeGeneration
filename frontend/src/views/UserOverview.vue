@@ -2,7 +2,9 @@
 import { ref, onMounted, computed } from 'vue';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUserStore } from '@/stores/user.store';
+import { useTransactionStore } from '@/stores/transaction.store';
 import UserItem from '../components/EmployeeUserItem.vue';
+import { Account, Transaction } from '@/models';
 import { useRoute } from 'vue-router';
 
 
@@ -10,6 +12,26 @@ import { useRoute } from 'vue-router';
 // User reactive state
 const authStore = useAuthStore();
 const userStore = useUserStore();
+const transactionStore = useTransactionStore();
+
+// Check if filters are active
+const hasActiveFilters = computed(() => transactionStore.hasActiveFilters);
+const currentFilters = computed(() => transactionStore.currentFilters);
+
+// Get sorted transactions from store
+const sortedTransactions = computed(() => transactionStore.sortedTransactions);
+
+const formatDate = (date: Date | string): string => {
+  const dateObj = date instanceof Date ? date : new Date(date);
+  return new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  }).format(dateObj);
+};
+
 const isLoading = ref(true);
 const error = ref('');
 const route = useRoute();
@@ -25,26 +47,29 @@ let user = {
   accounts: [] as Account[]
 };
 
-interface Account {
-  id: Number,
-  accountName: String,
-  accountNumber: String,
-  accountType: String,
-  balance: Number,
-  currency: String,
-  dailyTransferLimit: Number,
-  dailyWithdrawalLimit: Number,
-  lastLimitResetDate: String,
-  singleTransferLimit: Number,
-  singleWithdrawalLimit: Number,
-}
 
 
 const handleLogout = () => {
   authStore.logout();
 };
-const selectAccount = (accountId: Number) => {
-  selectedAccount = user.accounts.filter(acc => acc.id === accountId)
+const selectAccount = async (accountId: Number) => {
+  selectedAccount = user.accounts.filter(acc => acc.id === accountId)[0];
+  try {
+    isLoading.value = true;
+    error.value = '';
+
+    // Then fetch transactions based on selected account
+    if (selectedAccount.accountNumber) {
+      await transactionStore.fetchTransactionsByAccount(selectedAccount.accountNumber);
+    } else {
+      await transactionStore.fetchAllTransactions();
+    }
+  } catch (err: any) {
+    console.error('Error fetching dashboard data:', err);
+    error.value = err.message || 'Failed to load dashboard data';
+  } finally {
+    isLoading.value = false;
+  }
 };
 
 onMounted(async () => {
@@ -67,6 +92,62 @@ const formatCurrency = (amount: number, currency: string): string => {
     style: 'currency',
     currency: currency,
   }).format(amount);
+};
+
+// Transaction display helpers
+const getTransactionDescription = (transaction: Transaction): string => {
+  const userAccountNumbers = user.accounts.map(acc => acc.accountNumber);
+
+  let isIncoming = userAccountNumbers.includes(transaction.destinationAccount.accountNumber) &&
+      !userAccountNumbers.includes(transaction.sourceAccount.accountNumber);
+
+  let isOutgoing = userAccountNumbers.includes(transaction.sourceAccount.accountNumber) &&
+      !userAccountNumbers.includes(transaction.destinationAccount.accountNumber);
+
+  let isInternal = userAccountNumbers.includes(transaction.sourceAccount.accountNumber) &&
+      userAccountNumbers.includes(transaction.destinationAccount.accountNumber);
+
+  if (isIncoming) {
+    return `From: ${transaction.sourceAccount.accountName} (${transaction.sourceAccount.accountNumber})`;
+  } else if (isOutgoing) {
+    return `To: ${transaction.destinationAccount.accountName} (${transaction.destinationAccount.accountNumber})`;
+  } else if (isInternal) {
+    return `Transfer: ${transaction.sourceAccount.accountName} → ${transaction.destinationAccount.accountName}`;
+  }
+
+  return transaction.description || 'Transaction';
+};
+
+const isPositiveTransaction = (transaction: Transaction): boolean => {
+  const userAccountNumbers = user.accounts.map(acc => acc.accountNumber);
+
+  if (selectedAccount.value) {
+    // If a specific account is selected
+    if (transaction.destinationAccount.accountNumber === selectedAccount.value.accountNumber) {
+      return true; // Money coming in to this account
+    }
+    if (transaction.sourceAccount.accountNumber === selectedAccount.value.accountNumber) {
+      return false; // Money going out from this account
+    }
+  } else {
+    // If money coming in from external source
+    if (userAccountNumbers.includes(transaction.destinationAccount.accountNumber) &&
+        !userAccountNumbers.includes(transaction.sourceAccount.accountNumber)) {
+      return true;
+    }
+    // If money going out to external destination
+    if (userAccountNumbers.includes(transaction.sourceAccount.accountNumber) &&
+        !userAccountNumbers.includes(transaction.destinationAccount.accountNumber)) {
+      return false;
+    }
+    // If internal transfer, it's neutral (but we'll show as positive)
+    if (userAccountNumbers.includes(transaction.sourceAccount.accountNumber) &&
+        userAccountNumbers.includes(transaction.destinationAccount.accountNumber)) {
+      return true;
+    }
+  }
+
+  return true;
 };
 </script>
 
@@ -130,7 +211,39 @@ const formatCurrency = (amount: number, currency: string): string => {
             <div><button class="action-button">Edit daily transfer limit</button><div>Daily transfer limit: {{ selectedAccount.dailyTransferLimit }}</div></div>
             <div><button class="action-button">Edit single transfer limit</button><div>Single transfer limit: {{ selectedAccount.singleTransferLimit }}</div></div>
           </div>
+          
+          
         </div>
+        <div v-if="isLoading || transactionStore.isLoading" class="card-loading">
+            <div v-for="i in 4" :key="i" class="skeleton-loader transaction-skeleton">
+              <div class="skeleton-line"></div>
+              <div class="skeleton-line short"></div>
+            </div>
+          </div>
+          <div v-else-if="sortedTransactions.length === 0" class="no-data">
+            <p v-if="hasActiveFilters">
+              No transactions found matching the current filters.
+            </p>
+            <p v-else>
+              No transactions found.
+            </p>
+          </div>
+          <ul v-else class="transaction-list">
+            <li v-for="transaction in sortedTransactions" :key="transaction.id" class="transaction-item">
+              <div class="transaction-info">
+                <span class="transaction-date">{{ formatDate(transaction.createAt) }}</span>
+                <span class="transaction-description">{{ getTransactionDescription(transaction) }}</span>
+                <span class="transaction-details">{{ transaction.description }}</span>
+                <span class="transaction-status">{{ transaction.transactionStatus }}</span>
+              </div>
+              <span v-if="isPositiveTransaction(transaction)" class="transaction-amount positive">
+                {{ formatCurrency(transaction.amount, transaction.currency) }}
+              </span>
+              <span v-else class="transaction-amount negative">
+                {{ `-${formatCurrency(transaction.amount, transaction.currency)}` }}
+              </span>
+            </li>
+          </ul>
       </div>
     </div>
 </template>
@@ -264,5 +377,83 @@ const formatCurrency = (amount: number, currency: string): string => {
 
 .action-button:active {
   transform: translateY(-1px);
+}
+.transaction-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.transaction-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.transaction-list::-webkit-scrollbar-track {
+  background: #f5f5f5;
+  border-radius: 4px;
+}
+
+.transaction-list::-webkit-scrollbar-thumb {
+  background: #ddd;
+  border-radius: 4px;
+}
+
+.transaction-list::-webkit-scrollbar-thumb:hover {
+  background: #ccc;
+}
+
+.transaction-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 16px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.transaction-item:last-child {
+  border-bottom: none;
+}
+
+.transaction-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.transaction-date {
+  font-size: 0.85rem;
+  color: #888;
+}
+
+.transaction-description {
+  margin-top: 6px;
+  font-size: 1.05rem;
+  font-weight: 500;
+}
+
+.transaction-details {
+  font-size: 0.85rem;
+  color: #777;
+  margin-top: 4px;
+}
+
+.transaction-status {
+  font-size: 0.8rem;
+  color: #555;
+  margin-top: 3px;
+  font-style: italic;
+}
+
+.transaction-amount {
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.positive {
+  color: #4CAF50;
+}
+
+.negative {
+  color: #F44336;
 }
 </style>

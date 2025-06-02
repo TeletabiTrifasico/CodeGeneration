@@ -1,6 +1,7 @@
 package com.codegeneration.banking.api.service.interfaces;
 
 import java.util.List;
+import java.util.Optional;
 
 import com.codegeneration.banking.api.entity.User;
 
@@ -30,4 +31,12 @@ public interface UserService {
      * @return List with user
      */
     List<User> getUserById(Number id);
+
+    /**
+     * Get user based on username
+     *
+     * @param username the user's username
+     * @return List with user
+     */
+    Optional<User> getUserByUsername(String username);
 }
