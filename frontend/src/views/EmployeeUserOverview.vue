@@ -77,6 +77,8 @@ onMounted(async () => {
   try {
     await authStore.validateToken();
     user = await userStore.getUserById(Number(userId));
+    //Clear transactions if user has no accounts
+    transactionStore.clearTransactions();
     if (user.accounts.length > 0) {
       selectAccount(user.accounts[0].id);
     }
@@ -121,12 +123,12 @@ const getTransactionDescription = (transaction: Transaction): string => {
 const isPositiveTransaction = (transaction: Transaction): boolean => {
   const userAccountNumbers = user.accounts.map(acc => acc.accountNumber);
 
-  if (selectedAccount.value) {
+  if (selectedAccount) {
     // If a specific account is selected
-    if (transaction.destinationAccount.accountNumber === selectedAccount.value.accountNumber) {
+    if (transaction.destinationAccount.accountNumber === selectedAccount.accountNumber) {
       return true; // Money coming in to this account
     }
-    if (transaction.sourceAccount.accountNumber === selectedAccount.value.accountNumber) {
+    if (transaction.sourceAccount.accountNumber === selectedAccount.accountNumber) {
       return false; // Money going out from this account
     }
   } else {
