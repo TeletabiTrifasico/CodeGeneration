@@ -7,12 +7,14 @@ import UserItem from '../components/EmployeeUserItem.vue';
 import { Account, Transaction, User } from '@/models';
 import { useRoute } from 'vue-router';
 import LimitModal from '../components/modals/LimitModal.vue'
+import { useAccountStore } from '@/stores';
 
 
 
 // User reactive state
 const authStore = useAuthStore();
 const userStore = useUserStore();
+const accountStore = useAccountStore();
 const transactionStore = useTransactionStore();
 
 // Check if filters are active
@@ -49,6 +51,9 @@ const openLimitModal = () => {
 const closeLimitModal = () => {
   showLimitModal.value = false;
   console.log("closing");
+}
+const editLimits = async (values: {}) => {
+  accountStore.editLimits(values);
 }
 
 const handleLogout = () => {
@@ -254,7 +259,7 @@ const isPositiveTransaction = (transaction: Transaction): boolean => {
             </li>
           </ul>
       </div>
-      <LimitModal :show="showLimitModal" :selectedAccount="selectedAccount" @close="closeLimitModal"/>
+      <LimitModal :show="showLimitModal" :selectedAccount="selectedAccount" @close="closeLimitModal" @edit-complete="editLimits"/>
     </div>
 </template>
 

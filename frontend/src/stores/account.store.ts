@@ -164,6 +164,9 @@ export const useAccountStore = defineStore('account', {
 
         clearCache() {
             currencyService.clearCache();
+        },
+        async editLimits(values: {}) {
+            console.log(values);
         }
     }
 });

@@ -18,7 +18,7 @@ let formValues = {
 const emit = defineEmits(['close', 'edit-complete']);
 const closeModal = () => {
     resetForm();
-    emit('close', formValues);
+    emit('close');
 };
 const resetForm  = () => {
     console.log("resetting");
@@ -28,6 +28,8 @@ onMounted( () => {
 });
 const submitForm = () => {
     console.log(formValues);
+    resetForm();
+    emit('edit-complete', formValues);
 };
 watch(() => props.show, (newVal, oldVal) => {
   console.log('show changed from', oldVal, 'to', newVal)

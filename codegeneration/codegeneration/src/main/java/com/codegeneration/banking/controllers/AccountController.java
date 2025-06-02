@@ -1,6 +1,7 @@
 package com.codegeneration.banking.controllers;
 
 import com.codegeneration.banking.api.dto.UsernameRequest;
+import com.codegeneration.banking.api.dto.LimitUpdateRequest;
 import com.codegeneration.banking.api.dto.account.AccountDTO;
 import com.codegeneration.banking.api.dto.account.AccountResponse;
 import com.codegeneration.banking.api.dto.transaction.TransactionRequest;
@@ -193,5 +194,17 @@ public class AccountController extends BaseController {
             log.error("Error in GET /account/search", e);
             throw e;
         }
+    }
+
+    @Operation(summary = "Edit limits for an account", description = "Edits the different limit fields for an account")
+    @PutMapping("/limits")
+    public ResponseEntity<List<String>> updateAccountLimits(@Valid @RequestBody LimitUpdateRequest request) {
+        List<String> response = new ArrayList<>();
+        String username = request.getUsername();
+        List<Account> accounts = accountService.getAccountsByUsername(username);
+        for (Account account : accounts) {
+            response.add(account.getAccountNumber());
+        }
+        return ResponseEntity.ok(response);
     }
 }
