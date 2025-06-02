@@ -4,8 +4,9 @@ import { useAuthStore } from '@/stores/auth.store';
 import { useUserStore } from '@/stores/user.store';
 import { useTransactionStore } from '@/stores/transaction.store';
 import UserItem from '../components/EmployeeUserItem.vue';
-import { Account, Transaction } from '@/models';
+import { Account, Transaction, User } from '@/models';
 import { useRoute } from 'vue-router';
+import LimitModal from '../components/modals/LimitModal.vue'
 
 
 
@@ -36,18 +37,19 @@ const isLoading = ref(true);
 const error = ref('');
 const route = useRoute();
 const userId = route.params.id;
-let selectedAccount = null;
+const showLimitModal = ref(false);
+let selectedAccount: Account;
+let user: User | null = null;
 
-let user = {
-  id: Number,
-  username: String,
-  name: String,
-  email: String,
-  enabled: true,
-  accounts: [] as Account[]
-};
-
-
+const openLimitModal = () => {
+  showLimitModal.value = true;
+  console.log("opening");
+  console.log(showLimitModal);
+}
+const closeLimitModal = () => {
+  showLimitModal.value = false;
+  console.log("closing");
+}
 
 const handleLogout = () => {
   authStore.logout();
@@ -77,6 +79,7 @@ onMounted(async () => {
   try {
     await authStore.validateToken();
     user = await userStore.getUserById(Number(userId));
+    console.log(user);
     //Clear transactions if user has no accounts
     transactionStore.clearTransactions();
     if (user.accounts.length > 0) {
@@ -178,7 +181,7 @@ const isPositiveTransaction = (transaction: Transaction): boolean => {
       <div v-else class="panel-container">
         <span v-if="isLoading" class="spinner small"></span>      
       </div>
-      <div class="accounts-panel">
+      <div v-if="!isLoading" class="accounts-panel">
         <div class="accounts-header">
           <h2>{{ user.name }}'s Accounts</h2>
         </div>
@@ -210,8 +213,12 @@ const isPositiveTransaction = (transaction: Transaction): boolean => {
           </ul>
           <div class="editButtons">
             {{ selectedAccount}}
-            <div><button class="action-button">Edit daily transfer limit</button><div>Daily transfer limit: {{ selectedAccount.dailyTransferLimit }}</div></div>
-            <div><button class="action-button">Edit single transfer limit</button><div>Single transfer limit: {{ selectedAccount.singleTransferLimit }}</div></div>
+            <div><button  @click="openLimitModal"class="action-button">Edit transfer limits</button>
+              <div>Daily transfer limit: {{ selectedAccount.dailyTransferLimit }}</div>
+              <div>Daily withdrawal limit: {{selectedAccount.dailyWithdrawalLimit}}</div>
+              <div>Absolute transfer limit: {{ selectedAccount.singleTransferLimit}} </div>
+              <div>Absolute withdrawal limit: {{selectedAccount.singleWithdrawalLimit}}</div>
+            </div>
           </div>
           
           
@@ -247,6 +254,7 @@ const isPositiveTransaction = (transaction: Transaction): boolean => {
             </li>
           </ul>
       </div>
+      <LimitModal :show="showLimitModal" :selectedAccount="selectedAccount" @close="closeLimitModal"/>
     </div>
 </template>
 

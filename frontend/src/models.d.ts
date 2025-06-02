@@ -9,6 +9,7 @@ export interface User {
     accounts: Account[];
 }
 
+
 export interface Account {
     id: number;
     accountNumber: string;
