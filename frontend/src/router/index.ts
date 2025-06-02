@@ -4,7 +4,7 @@ import LoginView from '../views/LoginView.vue';
 import RegisterView from '@/views/RegisterView.vue';
 import { useAuthStore } from '@/stores/auth.store';
 import EmployeeView from '@/views/EmployeeView.vue';
-import UserOverview from '@/views/UserOverview.vue';
+import UserOverview from '@/views/EmployeeUserOverview.vue';
 
 const routes: Array<RouteRecordRaw> = [
     {

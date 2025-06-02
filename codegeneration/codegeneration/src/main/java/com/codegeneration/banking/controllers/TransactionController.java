@@ -172,6 +172,7 @@ public class TransactionController extends BaseController {
             log.info("Processing GET /transaction/byaccount/{} for user: {}", accountNumber, username);
 
             Account account = null;
+            //Could be replaced by a function that only gets the role if needed
             //if the user is an employee, get the account info regardless.
             User user = userService.getUserByUsername(username).orElse(null);
             if(user.getRole() == UserRole.EMPLOYEE){

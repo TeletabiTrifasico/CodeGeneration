@@ -78,7 +78,7 @@ onMounted(async () => {
     await authStore.validateToken();
     user = await userStore.getUserById(Number(userId));
     if (user.accounts.length > 0) {
-      selectedAccount = user.accounts[0];
+      selectAccount(user.accounts[0].id);
     }
   } catch (err) {
     console.error('Token validation error:', err);
