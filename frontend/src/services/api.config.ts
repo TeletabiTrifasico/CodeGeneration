@@ -79,7 +79,8 @@ export const API_ENDPOINTS = {
         getAll: '/account/getall',
         details: (accountNumber: string) => `/account/details/${accountNumber}`,
         search: '/account/search',
-        getIBANByUsername: '/account/getIBANByUsername'
+        getIBANByUsername: '/account/getIBANByUsername',
+        limits: '/account/limits'
     },
     transaction: {
         getAll: '/transaction/getall',

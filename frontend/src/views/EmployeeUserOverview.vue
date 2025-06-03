@@ -52,9 +52,6 @@ const closeLimitModal = () => {
   showLimitModal.value = false;
   console.log("closing");
 }
-const editLimits = async (values: {}) => {
-  accountStore.editLimits(values);
-}
 
 const handleLogout = () => {
   authStore.logout();
@@ -78,18 +75,23 @@ const selectAccount = async (accountId: Number) => {
     isLoading.value = false;
   }
 };
+const refreshData = () => {
+  loadData();
+}
+const loadData = async () => {
+  await authStore.validateToken();
+  user = await userStore.getUserById(Number(userId));
+  //Clear transactions in case user has no accounts
+  transactionStore.clearTransactions();
+  if (user.accounts.length > 0) {
+    selectAccount(user.accounts[0].id);
+  }
+}
 
 onMounted(async () => {
   // Validate authentication token
   try {
-    await authStore.validateToken();
-    user = await userStore.getUserById(Number(userId));
-    console.log(user);
-    //Clear transactions if user has no accounts
-    transactionStore.clearTransactions();
-    if (user.accounts.length > 0) {
-      selectAccount(user.accounts[0].id);
-    }
+    await loadData();
   } catch (err) {
     console.error('Token validation error:', err);
     // authStore.logout() will be called in validateToken if it fails
@@ -217,7 +219,6 @@ const isPositiveTransaction = (transaction: Transaction): boolean => {
           </li>
           </ul>
           <div class="editButtons">
-            {{ selectedAccount}}
             <div><button  @click="openLimitModal"class="action-button">Edit transfer limits</button>
               <div>Daily transfer limit: {{ selectedAccount.dailyTransferLimit }}</div>
               <div>Daily withdrawal limit: {{selectedAccount.dailyWithdrawalLimit}}</div>
@@ -259,7 +260,7 @@ const isPositiveTransaction = (transaction: Transaction): boolean => {
             </li>
           </ul>
       </div>
-      <LimitModal :show="showLimitModal" :selectedAccount="selectedAccount" @close="closeLimitModal" @edit-complete="editLimits"/>
+      <LimitModal :show="showLimitModal" :selectedAccount="selectedAccount" @close="closeLimitModal" @edit-complete="refreshData"/>
     </div>
 </template>
 
@@ -381,7 +382,7 @@ const isPositiveTransaction = (transaction: Transaction): boolean => {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  width: 50%;
+  width: 200px;
 }
 
 .action-button:hover {

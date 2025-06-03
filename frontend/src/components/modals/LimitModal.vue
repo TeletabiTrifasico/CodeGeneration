@@ -10,30 +10,42 @@ const props = defineProps<{
   selectedAccount?: Account;
 }>();
 let formValues = {
+    accountNumber: "",
     dailyTransferLimit: 0,
     singleTransferLimit: 0,
     dailyWithdrawalLimit: 0,
     singleWithdrawalLimit: 0
 }
+let isProcessing = false;
 const emit = defineEmits(['close', 'edit-complete']);
 const closeModal = () => {
-    resetForm();
-    emit('close');
+    if(!isProcessing) {
+        resetForm();
+        emit('close');
+    }
 };
 const resetForm  = () => {
-    console.log("resetting");
+    formValues = {
+        accountNumber: "",
+        dailyTransferLimit: 0,
+        singleTransferLimit: 0,
+        dailyWithdrawalLimit: 0,
+        singleWithdrawalLimit: 0
+    }
 };
-onMounted( () => {
-    console.log("test");
-});
 const submitForm = () => {
-    console.log(formValues);
+    isProcessing = true;
+    let accountStore = useAccountStore();
+    accountStore.editLimits(formValues);
     resetForm();
-    emit('edit-complete', formValues);
+    emit('edit-complete');
+    isProcessing = false;
+    closeModal();
 };
+
 watch(() => props.show, (newVal, oldVal) => {
-  console.log('show changed from', oldVal, 'to', newVal)
-  if (newVal = true) {
+  if (newVal = true) { //Watch for show to become true
+    formValues.accountNumber = props.selectedAccount.accountNumber;
     formValues.dailyTransferLimit = props.selectedAccount.dailyTransferLimit;
     formValues.dailyWithdrawalLimit = props.selectedAccount.dailyWithdrawalLimit;
     formValues.singleTransferLimit = props.selectedAccount.singleTransferLimit;
@@ -53,6 +65,7 @@ watch(() => props.show, (newVal, oldVal) => {
             <div class="modal-body">
                 <!-- Modal content goes here -->
                 <form class="form" @submit.prevent="submitForm">
+                    <div class="form-group">
                     <label :for="'dailyTransfer'">Daily transfer limit</label>
                     <input
                         :id="'dailyTransfer'"
@@ -62,7 +75,8 @@ watch(() => props.show, (newVal, oldVal) => {
                         :step="1"
                         class="form-control"
                         required
-                    />
+                    /></div>
+                    <div class="form-group">
                     <label :for="'dailyWithdrawal'">Daily withdrawal limit</label>
                     <input
                         :id="'dailyWithdrawal'"
@@ -72,7 +86,8 @@ watch(() => props.show, (newVal, oldVal) => {
                         :step="1"
                         class="form-control"
                         required
-                    />
+                    /></div>
+                    <div class="form-group">
                     <label :for="'singleTransfer'">Single transfer limit</label>
                     <input
                         :id="'singleTransfer'"
@@ -82,7 +97,8 @@ watch(() => props.show, (newVal, oldVal) => {
                         :step="1"
                         class="form-control"
                         required
-                    />
+                    /></div>
+                    <div class="form-group">
                     <label :for="'singleWithdrawal'">Single withdrawal limit</label>
                     <input
                         :id="'singleWithdrawal'"
@@ -92,10 +108,19 @@ watch(() => props.show, (newVal, oldVal) => {
                         :step="1"
                         class="form-control"
                         required
-                    />
+                    /></div>
 
                     <div class="form-actions">
-                    <button type="submit" class="button primary">Save</button>
+                      
+                    <button type="submit" class="button primary" :disabled="isProcessing">Save</button>
+                    <button
+                        type="button"
+                        class="button secondary"
+                        @click="closeModal"
+                        :disabled="isProcessing"
+                    >
+                      Cancel
+                    </button>
                     </div>
                 </form>
             </div>
@@ -161,9 +186,56 @@ watch(() => props.show, (newVal, oldVal) => {
   max-height: calc(90vh - 100px);
   overflow-y: auto;
 }
-.form {
-    display: flex;
-    flex-direction: column;
-    align-items: baseline;
+.form-group {
+    margin:20px;
+}
+.button {
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 120px;
+}
+.button.primary {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.button.primary:hover:not(:disabled) {
+  background-color: #43a047;
+  transform: translateY(-2px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+}
+.button.secondary {
+  background-color: #f5f5f5;
+  color: #333;
+}
+
+.button.secondary:hover:not(:disabled) {
+  background-color: #e8e8e8;
+}
+.form-control {
+  width: 100%;
+  padding: 12px 15px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.3s;
+}
+
+.form-control:focus {
+  border-color: #4CAF50;
+  outline: none;
+}
+.form-actions {
+  display: flex;
+  justify-content: flex-start;
+  gap: 15px;
+  margin-top: 30px;
 }
 </style>

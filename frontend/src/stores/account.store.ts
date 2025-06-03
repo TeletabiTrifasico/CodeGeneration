@@ -167,6 +167,30 @@ export const useAccountStore = defineStore('account', {
         },
         async editLimits(values: {}) {
             console.log(values);
+            const authStore = useAuthStore();
+
+            if (!authStore.isLoggedIn) {
+                this.error = 'Not authenticated';
+                return [];
+            }
+
+            try {
+                this.loading = true;
+                this.error = null;
+
+                const response = await apiClient.put(
+                    API_ENDPOINTS.account.limits, values, 
+                    { headers: getAuthHeader() }
+                );
+                console.log(response.data);
+            }
+            catch (error: any) {
+                console.error('Error fetching accounts:', error);
+                this.error = error.message || 'Failed to load accounts';
+                throw error;
+            } finally {
+                this.loading = false;
+            }
         }
     }
 });
