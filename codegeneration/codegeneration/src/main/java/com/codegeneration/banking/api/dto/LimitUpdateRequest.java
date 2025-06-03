@@ -2,6 +2,7 @@
 package com.codegeneration.banking.api.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -12,14 +13,15 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class LimitUpdateRequest {
-
-    @NotBlank(message = "value is required")
+    @NotBlank(message = "Account number is required")
+    private String accountNumber;
+    @NotNull(message = "value is required")
     private int dailyTransferLimit;
-    @NotBlank(message = "value is required")
+    @NotNull(message = "value is required")
     private int singleTransferLimit;
-    @NotBlank(message = "value is required")
+    @NotNull(message = "value is required")
     private int dailyWithdrawalLimit;
-    @NotBlank(message = "value is required")
+    @NotNull(message = "value is required")
     private int singleWithdrawalLimit;
 
     // Getters and Setters

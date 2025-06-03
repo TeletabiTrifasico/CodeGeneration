@@ -172,16 +172,13 @@ public class TransactionController extends BaseController {
             log.info("Processing GET /transaction/byaccount/{} for user: {}", accountNumber, username);
 
             Account account = null;
-            //Could be replaced by a function that only gets the role if needed
-            //if the user is an employee, get the account info regardless.
-            User user = userService.getUserByUsername(username).orElse(null);
-            if(user.getRole() == UserRole.EMPLOYEE){
+            //check if user is an employee
+            if (authentication.getAuthorities().stream().anyMatch(auth -> "ROLE_EMPLOYEE".equals(auth.getAuthority()))) {
                 account = accountService.getAccountByNumber(accountNumber);
-            }else{
+            }
+            else {
                 account = accountService.getAccountByNumberAndUsername(accountNumber, username);
             }
-
-
 
             if (account == null) {
                 throw new ResourceNotFoundException("Account not found with number: " + accountNumber);

@@ -6,6 +6,7 @@ import com.codegeneration.banking.api.dto.account.AccountDTO;
 import com.codegeneration.banking.api.dto.account.AccountResponse;
 import com.codegeneration.banking.api.dto.transaction.TransactionRequest;
 import com.codegeneration.banking.api.entity.Account;
+import com.codegeneration.banking.api.repository.AccountRepository;
 import com.codegeneration.banking.api.security.JwtAuthenticationFilter;
 import com.codegeneration.banking.api.security.JwtTokenProvider;
 import com.codegeneration.banking.api.service.interfaces.AccountService;
@@ -21,10 +22,13 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -39,6 +43,7 @@ public class AccountController extends BaseController {
     private final AccountService accountService;
     private final JwtTokenProvider jwtTokenProvider;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final AccountRepository accountRepository;
 
     @Operation(summary = "Get all accounts", description = "Returns all accounts belonging to the authenticated user")
     @ApiResponses(value = {
@@ -198,13 +203,27 @@ public class AccountController extends BaseController {
 
     @Operation(summary = "Edit limits for an account", description = "Edits the different limit fields for an account")
     @PutMapping("/limits")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<String>> updateAccountLimits(@Valid @RequestBody LimitUpdateRequest request) {
-        List<String> response = new ArrayList<>();
-        String username = request.getUsername();
-        List<Account> accounts = accountService.getAccountsByUsername(username);
-        for (Account account : accounts) {
-            response.add(account.getAccountNumber());
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication.getAuthorities().stream().anyMatch(auth -> "ROLE_EMPLOYEE".equals(auth.getAuthority()))) {
+            String accountNumber = request.getAccountNumber();
+            Account account = accountService.getAccountByNumber(accountNumber);
+            //Could be moved to account entity possibly to look cleaner
+            account.setDailyTransferLimit(BigDecimal.valueOf(request.getDailyTransferLimit()));
+            account.setSingleTransferLimit(BigDecimal.valueOf(request.getSingleTransferLimit()));
+            account.setDailyWithdrawalLimit(BigDecimal.valueOf(request.getDailyWithdrawalLimit()));
+            account.setSingleWithdrawalLimit(BigDecimal.valueOf(request.getSingleWithdrawalLimit()));
+            accountRepository.save(account);
+            List<String> response = new ArrayList<>();
+            response.add("Successfully edited limits for account: " + accountNumber);
+            log.info(response.toString());
+            return ResponseEntity.ok(response);
         }
-        return ResponseEntity.ok(response);
+        else {
+            //not an employee
+            return ResponseEntity.status(401).build();
+        }
     }
 }
