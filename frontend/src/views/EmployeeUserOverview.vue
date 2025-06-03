@@ -165,19 +165,6 @@ const isPositiveTransaction = (transaction: Transaction): boolean => {
 
 <template>
     <div class="view-container">
-      <!-- Header with user info and actions -->
-      <header class="panel-header">
-        <div class="user-welcome">
-        </div>
-        <div class="header-actions">
-          <button @click="refreshData" class="refresh-button" :disabled="isLoading">
-            <span v-if="isLoading" class="spinner small"></span>
-            <span v-else>↻</span>
-            Refresh
-          </button>
-          <button @click="handleLogout" class="logout-button">Logout</button>
-        </div>
-      </header>
 
       <!-- Main panel content -->
       <div v-if="error" class="error-panel">
@@ -189,8 +176,18 @@ const isPositiveTransaction = (transaction: Transaction): boolean => {
         <span v-if="isLoading" class="spinner small"></span>      
       </div>
       <div v-if="!isLoading" class="accounts-panel">
-        <div class="accounts-header">
-          <h2>{{ user.name }}'s Accounts</h2>
+        <div class="header-actions">
+          <div class="accounts-header">
+            <h2>{{ user.name }}'s Accounts</h2>
+          </div>
+          <div class="header-actions">
+            <button @click="refreshData" class="refresh-button" :disabled="isLoading">
+              <span v-if="isLoading" class="spinner small"></span>
+              <span v-else>↻</span>
+              Refresh
+            </button>
+            <button @click="handleLogout" class="logout-button">Logout</button>
+          </div>
         </div>
 
         <div v-if="isLoading" class="card-loading">
@@ -471,5 +468,62 @@ const isPositiveTransaction = (transaction: Transaction): boolean => {
 
 .negative {
   color: #F44336;
+}
+.refresh-button,
+.logout-button {
+  padding: 10px 15px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.refresh-button {
+  background-color: #f5f5f5;
+  color: #333;
+  border: 1px solid #ddd;
+}
+
+.refresh-button:hover:not(:disabled) {
+  background-color: #e8e8e8;
+}
+
+.refresh-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.logout-button {
+  background-color: #f44336;
+  color: white;
+  border: none;
+}
+
+.logout-button:hover {
+  background-color: #d32f2f;
+  transform: translateY(-2px);
+}
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  border-top-color: #333;
+  animation: spin 1s linear infinite;
+}
+
+.spinner.small {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+}
+.header-actions {
+  display: flex;
+  gap: 15px;
 }
 </style>
