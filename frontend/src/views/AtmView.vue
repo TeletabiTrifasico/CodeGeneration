@@ -208,19 +208,6 @@ onMounted(async () => {
             step="0.01"
             required
           />
-          <div class="amount-slider">
-            <input 
-              type="range" 
-              v-model="amount" 
-              :min="minAmount" 
-              :max="maxAmount" 
-              step="1"
-            />
-            <div class="slider-labels">
-              <span>{{ formatCurrency(minAmount) }}</span>
-              <span>{{ formatCurrency(maxAmount) }}</span>
-            </div>
-          </div>
         </div>
         
         <!-- Description -->

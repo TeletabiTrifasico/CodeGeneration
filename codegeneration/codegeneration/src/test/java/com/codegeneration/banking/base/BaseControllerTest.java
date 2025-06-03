@@ -79,7 +79,7 @@ public abstract class BaseControllerTest {
             refField.setAccessible(true);
             refField.set(tx, "TRX123456");
         } catch (Exception e) {
-            // Ignore reflection errors, the mock will still work
+            // the mock will still work
         }
 
         when(accountService.getAccountByNumberAndUsername(eq(TEST_ACCOUNT_NUMBER), eq(TEST_USERNAME)))

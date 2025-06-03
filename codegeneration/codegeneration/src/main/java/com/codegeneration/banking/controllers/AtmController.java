@@ -65,7 +65,7 @@ public class AtmController extends BaseController {
                 throw new ResourceNotFoundException("Account not found: " + request.getAccountNumber());
             }
             
-            // Perform deposit
+            // deposit
             double amount = request.getAmount();
             accountService.increaseBalance(account, BigDecimal.valueOf(amount));
             
@@ -77,7 +77,7 @@ public class AtmController extends BaseController {
                     request.getDescription()
             );
             
-            // Create response
+            // response
             AtmTransactionResponse response = AtmTransactionResponse.builder()
                     .success(true)
                     .transactionReference(transaction.getTransactionReference())
@@ -130,7 +130,7 @@ public class AtmController extends BaseController {
                 throw new ResourceNotFoundException("Account not found: " + request.getAccountNumber());
             }
             
-            // Perform withdrawal
+            //  withdrawal
             double amount = request.getAmount();
             accountService.decreaseBalance(account, BigDecimal.valueOf(amount));
             
@@ -142,7 +142,7 @@ public class AtmController extends BaseController {
                     request.getDescription()
             );
             
-            // Create response
+            // response
             AtmTransactionResponse response = AtmTransactionResponse.builder()
                     .success(true)
                     .transactionReference(transaction.getTransactionReference())
