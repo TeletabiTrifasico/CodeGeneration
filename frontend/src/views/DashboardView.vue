@@ -124,10 +124,6 @@ const refreshData = async () => {
   }
 };
 
-const handleLogout = () => {
-  authStore.logout();
-};
-
 const handleFiltersChanged = (filters: TransactionFilters) => {
   const hasFilters = Object.values(filters).some(value =>
       value !== undefined && value !== null && value !== ''
@@ -244,18 +240,10 @@ onMounted(async () => {
 
 <template>
   <div class="dashboard-container">
-    <!-- Header with user info and actions -->
-    <header class="dashboard-header">
+    <!-- Header with user info -->    
+     <header class="dashboard-header">
       <div class="user-welcome">
         <h1>Welcome, {{ authStore.currentUser ? authStore.currentUser.name : 'User' }}!</h1>
-      </div>
-      <div class="header-actions">
-        <button @click="refreshData" class="refresh-button" :disabled="isLoading">
-          <span v-if="isLoading" class="spinner small"></span>
-          <span v-else>↻</span>
-          Refresh
-        </button>
-        <button @click="handleLogout" class="logout-button">Logout</button>
       </div>
     </header>
 
@@ -333,14 +321,14 @@ onMounted(async () => {
 
         <!-- Recent transactions card -->
         <div class="summary-card transactions-card">
-          <div class="transactions-header">
+            <div class="transactions-header">
             <h2>
               {{ selectedAccount ? 'Account Transactions' : 'Recent Transactions' }}
               <span v-if="hasActiveFilters" class="filter-indicator">
-                (Filtered)
+              (Filtered)
               </span>
             </h2>
-          </div>
+            </div>
 
           <!-- Transaction Filter Component -->
           <TransactionFilter
@@ -393,12 +381,7 @@ onMounted(async () => {
 }
 
 .dashboard-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   margin-bottom: 40px;
-  flex-wrap: wrap;
-  gap: 20px;
 }
 
 h1 {
@@ -413,7 +396,7 @@ h1 {
   gap: 15px;
 }
 
-.refresh-button, .logout-button, .view-all-button {
+.refresh-button, .view-all-button {
   padding: 10px 15px;
   border-radius: 8px;
   font-weight: 500;
@@ -437,17 +420,6 @@ h1 {
 .refresh-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
-
-.logout-button {
-  background-color: #f44336;
-  color: white;
-  border: none;
-}
-
-.logout-button:hover {
-  background-color: #d32f2f;
-  transform: translateY(-2px);
 }
 
 .transfer {
@@ -635,6 +607,10 @@ h1 {
 
 .transactions-header {
   position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
 }
 
 .filter-indicator {
@@ -912,12 +888,6 @@ h1 {
 }
 
 @media (min-width: 576px) and (max-width: 767px) {
-  .dashboard-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 15px;
-  }
-
   h1 {
     font-size: 1.8rem;
   }
@@ -953,23 +923,11 @@ h1 {
   }
 
   .dashboard-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 15px;
     margin-bottom: 30px;
   }
 
   h1 {
     font-size: 1.7rem;
-  }
-
-  .header-actions {
-    width: 100%;
-  }
-
-  .refresh-button, .logout-button {
-    flex: 1;
-    justify-content: center;
   }
 
   .dashboard-summary {
@@ -1012,6 +970,17 @@ h1 {
     font-size: 0.9rem;
     min-width: auto;
     width: 100%;
+  }
+
+  .transactions-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+
+  .refresh-button {
+    padding: 8px 12px;
+    font-size: 0.85rem;
   }
 }
 </style>
