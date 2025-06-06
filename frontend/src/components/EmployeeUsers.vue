@@ -4,8 +4,9 @@ import UserItem from './EmployeeUserItem.vue';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUserStore } from '@/stores/user.store';
 
-const authStore = useAuthStore();
-const userStore = useUserStore();
+
+// User reactive state
+const user = ref(AuthService.getCurrentUser());
 const isLoading = ref(true);
 let currentPage = 1;
 const error = ref('');

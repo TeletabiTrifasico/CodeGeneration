@@ -3,6 +3,7 @@ package com.codegeneration.banking.api.service.interfaces;
 import com.codegeneration.banking.api.entity.Account;
 import com.codegeneration.banking.api.entity.User;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 public interface AccountService {
@@ -40,6 +41,25 @@ public interface AccountService {
      * @return The account if found, null if not found or not owned by the user
      */
     Account getAccountByNumberAndUser(String accountNumber, User user);
+    
+    /**
+     * Increase account balance
+     *
+     * @param account The account to update
+     * @param amount Amount to increase (positive value)
+     * @throws IllegalArgumentException if amount is negative
+     */
+    void increaseBalance(Account account, BigDecimal amount);
+    
+    /**
+     * Decrease account balance
+     *
+     * @param account The account to update
+     * @param amount Amount to decrease (positive value)
+     * @throws IllegalArgumentException if amount is negative
+     * @throws InsufficientFundsException if amount exceeds available balance
+     */
+    void decreaseBalance(Account account, BigDecimal amount);
 
     /**
      * Search for accounts by username (partial match)

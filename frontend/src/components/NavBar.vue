@@ -65,7 +65,8 @@ onUnmounted(() => {
   <nav class="navbar">
     <div class="navbar-container">
       <router-link to="/" class="navbar-brand">
-        <span class="brand-name">Banking App</span>
+        <img src="@/assets/bank logo.png" alt="Bank Logo" class="brand-logo">
+        <!-- <span class="brand-name">Bank Name</span> -->
       </router-link>
 
       <!-- Mobile menu toggle button -->
@@ -85,6 +86,9 @@ onUnmounted(() => {
           <template v-if="isLoggedIn">
             <router-link to="/dashboard" class="nav-link" :class="{ 'active': currentRoute === '/dashboard' }" @click="closeMobileMenu">
               Dashboard
+            </router-link>
+            <router-link to="/atm" class="nav-link" :class="{ 'active': currentRoute === '/atm' }" @click="closeMobileMenu">
+              ATM
             </router-link>
             <router-link v-if="user.role == 'EMPLOYEE'" to="/employeePanel" class="nav-link" :class="{ 'active': currentRoute === '/dashboard' }" @click="closeMobileMenu">
               Employee Panel
@@ -149,6 +153,11 @@ onUnmounted(() => {
 .brand-icon {
   margin-right: 8px;
   font-size: 1.5rem;
+}
+
+.brand-logo {
+  height: 32px;
+  margin-right: 10px;
 }
 
 .mobile-menu-toggle {

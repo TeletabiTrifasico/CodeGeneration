@@ -98,6 +98,12 @@ export const API_ENDPOINTS = {
         byPage: (pageNumber: number, limit: number) => `/users?page=${pageNumber}&limit=${limit}`,
         byId:(id: number) => `/users/${id}`,
     },
+    
+    // ATM endpoints
+    atm: {
+        deposit: '/atm/deposit', // POST 
+        withdraw: '/atm/withdraw' // POST
+    },
 };
 
 // Add request interceptor to automatically add Authorization header to all requests

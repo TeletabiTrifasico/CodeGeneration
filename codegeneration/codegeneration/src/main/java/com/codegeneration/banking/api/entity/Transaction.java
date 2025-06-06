@@ -76,6 +76,11 @@ public class Transaction {
 
     @Column(nullable = true)
     private LocalDateTime completedAt;
+    
+//same as in the Account entity
+
+    public Transaction(long l, String trx123456, Account account, Account account1, BigDecimal bigDecimal, TransactionType transactionType) {
+    }
 
     @PrePersist
     protected void onCreate() {
@@ -94,9 +99,10 @@ public class Transaction {
     }
 
     public enum TransactionType {
-        TRANSFER,
-        DEPOSIT,
-        WITHDRAWAL,
+        TRANSFER,        // Money transfer between accounts
+        ATM_WITHDRAWAL,  // ATM withdrawal
+        ATM_DEPOSIT,      // ATM deposit
         PAYMENT // Remove
+
     }
 }

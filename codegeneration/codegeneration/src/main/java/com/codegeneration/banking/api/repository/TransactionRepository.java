@@ -9,7 +9,7 @@ import java.util.List;
 
 @Repository
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
-
+    
     /**
      * Find transactions where the account is either the source or destination
      *
@@ -18,4 +18,21 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
      * @return List of transactions
      */
     List<Transaction> findBySourceAccountOrDestinationAccount(Account sourceAccount, Account destinationAccount);
+
+    /**
+     * Find all transactions where the specified account is either the source or destination
+     */
+    List<Transaction> findAllBySourceAccountOrDestinationAccount(Account sourceAccount, Account destinationAccount);
+    
+    /**
+     * Find all transactions where the specified username is either the source or destination account owner
+     */
+    List<Transaction> findAllBySourceAccountUserUsernameOrDestinationAccountUserUsername(
+            String sourceUsername, String destinationUsername);
+    
+    /**
+     * Find all transactions for a specific account number
+     */
+    List<Transaction> findAllBySourceAccountAccountNumberOrDestinationAccountAccountNumber(
+            String sourceAccountNumber, String destinationAccountNumber);
 }
