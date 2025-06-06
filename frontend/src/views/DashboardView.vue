@@ -317,7 +317,8 @@ onMounted(async () => {
           </div>
           <div v-else class="balance-display">
             <p class="balance">{{ formatCurrency(accountBalance, currentCurrency) }}</p>
-          </div>          <div class="transfer w-100">
+          </div>        
+          <div class="transfer w-100 dashboard-actions">
             <button class="action-button" @click="openTransferModal">
               <span class="action-icon">↗</span>
               Transfer Money
@@ -450,9 +451,9 @@ h1 {
 }
 
 .transfer {
-  margin-top: 100%;
+  margin-top: auto;
   display: flex;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
@@ -827,38 +828,41 @@ h1 {
 }
 
 .dashboard-actions {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  width: 100%;
 }
 
 .action-button {
-  padding: 18px;
+  padding: 15px 20px;
   background-color: #4CAF50;
   color: white;
   border: none;
   border-radius: 10px;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.3s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  width: 100%;
+  gap: 8px;
   flex: 1;
+  min-width: 140px;
   text-decoration: none;
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.2);
 }
 
 .action-button:hover {
   background-color: #43a047;
-  transform: translateY(-3px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
 }
 
 .action-button:active {
-  transform: translateY(-1px);
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(76, 175, 80, 0.2);
 }
 
 .action-icon {
@@ -899,6 +903,12 @@ h1 {
     flex-direction: column;
     gap: 8px;
   }
+
+  .action-button {
+    padding: 12px 16px;
+    font-size: 0.95rem;
+    min-width: 120px;
+  }
 }
 
 @media (min-width: 576px) and (max-width: 767px) {
@@ -917,10 +927,6 @@ h1 {
     gap: 20px;
   }
 
-  .dashboard-actions {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
   .summary-card {
     padding: 25px 20px;
   }
@@ -928,6 +934,16 @@ h1 {
   .currency-breakdown {
     flex-direction: column;
     gap: 8px;
+  }
+
+  .action-button {
+    padding: 12px 15px;
+    font-size: 0.9rem;
+    min-width: 110px;
+  }
+
+  .dashboard-actions {
+    gap: 10px;
   }
 }
 
@@ -961,21 +977,12 @@ h1 {
     gap: 20px;
   }
 
-  .dashboard-actions {
-    grid-template-columns: 1fr;
-    gap: 15px;
-  }
-
   .summary-card {
     padding: 20px;
   }
 
   .balance {
     font-size: 2rem;
-  }
-
-  .action-button {
-    padding: 15px;
   }
 
   .accounts-list {
@@ -993,6 +1000,18 @@ h1 {
 
   .breakdown-item {
     text-align: center;
+  }
+
+  .dashboard-actions {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .action-button {
+    padding: 14px 15px;
+    font-size: 0.9rem;
+    min-width: auto;
+    width: 100%;
   }
 }
 </style>
