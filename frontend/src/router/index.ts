@@ -11,7 +11,8 @@ const routes: Array<RouteRecordRaw> = [
     {
         path: '/',
         name: 'home',
-        component: HomeView
+        component: HomeView,
+        meta: { guestOnly: true }
     },
     {
         path: '/login',
@@ -91,11 +92,9 @@ router.beforeEach(async (to, from, next) => {
                 query: { redirect: to.fullPath }  // Save the route they were trying to access
             });
         }
-    }
-    // Logic for guest-only routes
+    }    // Logic for guest-only routes
     else if (guestOnly && isAuthenticated) {
-        // Redirect to dashboard if trying to access login/register while authenticated
-        // TODO: Permission checks, if employee -> employee dashboard, else to regular dashboard
+        // Redirect authenticated users accessing guest-only routes to dashboard
         next({ name: 'dashboard' });
     }
     // Allow access to public routes

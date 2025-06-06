@@ -317,13 +317,17 @@ onMounted(async () => {
           </div>
           <div v-else class="balance-display">
             <p class="balance">{{ formatCurrency(accountBalance, currentCurrency) }}</p>
-          </div>
-          <div class="transfer w-100">
+          </div>          <div class="transfer w-100">
             <button class="action-button" @click="openTransferModal">
               <span class="action-icon">↗</span>
               Transfer Money
             </button>
+            <router-link to="/atm" class="action-button">
+              <span class="action-icon">🏧</span>
+              ATM Access
+            </router-link>
           </div>
+          
         </div>
 
         <!-- Recent transactions card -->
@@ -374,26 +378,6 @@ onMounted(async () => {
             </li>
           </ul>
         </div>
-      </div>
-
-      <!-- Quick actions panel -->
-      <div class="dashboard-actions">
-        <router-link to="/atm" class="action-button">
-          <span class="action-icon">🏧</span>
-          ATM Access
-        </router-link>
-        <button class="action-button">
-          <span class="action-icon">↗</span>
-          Transfer Money
-        </button>
-        <button class="action-button">
-          <span class="action-icon">📄</span>
-          Pay Bills
-        </button>
-        <button class="action-button">
-          <span class="action-icon">📊</span>
-          View Statements
-        </button>
       </div>
     </div>
   </div>
@@ -467,6 +451,9 @@ h1 {
 
 .transfer {
   margin-top: 100%;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .spinner {
@@ -860,6 +847,8 @@ h1 {
   justify-content: center;
   gap: 10px;
   width: 100%;
+  flex: 1;
+  text-decoration: none;
 }
 
 .action-button:hover {

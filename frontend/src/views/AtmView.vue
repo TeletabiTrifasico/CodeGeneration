@@ -91,10 +91,9 @@ const handleSubmit = async () => {
         description.value
       );
     }
-    
-    if (success) {
+      if (success) {
       // Update account and transaction data
-      await accountStore.fetchAccountDetails(selectedAccount.value.accountNumber);
+      await accountStore.fetchAllAccounts();
       if (selectedAccount.value) {
         await transactionStore.fetchTransactionsByAccount(selectedAccount.value.accountNumber);
       }

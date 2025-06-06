@@ -12,10 +12,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -51,29 +49,57 @@ public class AccountServiceImpl implements AccountService {
         return accountRepository.findByAccountNumberAndUser(accountNumber, user)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Account not found with number: " + accountNumber + " for user ID: " + user.getId()));
-    }
-
-    @Override
+    }    @Override
+    @Transactional
     public void decreaseBalance(Account account, BigDecimal amount) {
-        // TODO: Implement decreaseBalance logic
-        throw new UnsupportedOperationException("Not implemented yet");
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Amount must be positive");
+        }
+        
+        // Check if withdrawal is allowed (limits)
+        if (!account.isWithdrawalAllowed(amount)) {
+            throw new InsufficientFundsException("Withdrawal exceeds daily or single transaction limits");
+        }
+        
+        // Check if sufficient balance
+        if (account.getBalance().compareTo(amount) < 0) {
+            throw new InsufficientFundsException("Insufficient balance. Available: " + 
+                account.getBalance() + ", Requested: " + amount);
+        }
+        
+        // Update balance and withdrawal usage
+        account.setBalance(account.getBalance().subtract(amount));
+        account.updateWithdrawalUsed(amount);
+        
+        // Save the updated account
+        accountRepository.save(account);
     }
 
     @Override
+    @Transactional
     public void increaseBalance(Account account, BigDecimal amount) {
-        // TODO: Implement increaseBalance logic
-        throw new UnsupportedOperationException("Not implemented yet");
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Amount must be positive");
+        }
+        
+        // Update balance
+        account.setBalance(account.getBalance().add(amount));
+        
+        // Save the updated account
+        accountRepository.save(account);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Account getAccountByNumber(String accountNumber) {
-        // TODO: Implement getAccountByNumber logic
-        throw new UnsupportedOperationException("Not implemented yet");
+        return accountRepository.findByAccountNumber(accountNumber)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Account not found with number: " + accountNumber));
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<Account> searchAccountsByUsername(String username) {
-        // TODO: Implement searchAccountsByUsername logic
-        throw new UnsupportedOperationException("Not implemented yet");
+        return accountRepository.findByUserUsername(username);
     }
 }
