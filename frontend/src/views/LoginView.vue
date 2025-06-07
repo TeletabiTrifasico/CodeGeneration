@@ -32,12 +32,18 @@ const handleLogin = async () => {
 
     // Redirect to dashboard on success
     router.push('/dashboard');
-  } catch (err: any) {
+    } catch (err: any) {
     console.error('Login error:', err);
 
     // Set error message based on response
     if (err.response && err.response.status === 401) {
-      error.value = 'Invalid username or password';
+      // Check if we have a specific error message from the backend
+      const errorMessage = err.response?.data?.message || err.response?.data?.error;
+      if (errorMessage && errorMessage.toLowerCase().includes('disabled')) {
+        error.value = errorMessage;
+      } else {
+        error.value = 'Invalid username or password';
+      }
     } else {
       error.value = err.message || 'An error occurred during login';
     }

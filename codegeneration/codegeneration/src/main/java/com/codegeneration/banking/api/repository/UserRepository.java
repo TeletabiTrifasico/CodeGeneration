@@ -66,4 +66,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * @return User matching specified id
      */
     List<User> findById(Number id);
+
+    /**
+     * Find users by enabled status with pagination
+     *
+     * @param enabled The enabled status to search for
+     * @param pageable Pagination information
+     * @return Page of users with the specified enabled status
+     */
+    org.springframework.data.domain.Page<User> findByEnabled(boolean enabled, org.springframework.data.domain.Pageable pageable);
 }

@@ -31,7 +31,6 @@ public interface UserService {
      * @return List with user
      */
     List<User> getUserById(Number id);
-
     /**
      * Get user based on username
      *
@@ -39,4 +38,21 @@ public interface UserService {
      * @return List with user
      */
     Optional<User> getUserByUsername(String username);
+
+    /**
+     * Get disabled users through pagination
+     *
+     * @param pageNumber the page to get users from
+     * @param limit the amount of users per page
+     * @return List of disabled users
+     */
+    List<User> getDisabledUsersByPage(Number pageNumber, Number limit);
+
+    /**
+     * Enable a user by ID
+     *
+     * @param userId the user's ID
+     * @return The enabled user
+     */
+    User enableUser(Long userId);
 }

@@ -10,6 +10,7 @@ const route = useRoute();
 
 const isLoggedIn = computed(() => authStore.isLoggedIn);
 const user = computed(() => authStore.currentUser);
+const isUserEnabled = computed(() => authStore.isUserEnabled);
 const currentRoute = computed(() => route.path);
 
 let authCheckInterval: number | null = null;
@@ -88,7 +89,8 @@ onUnmounted(() => {
             </router-link>
             <router-link to="/atm" class="nav-link" :class="{ 'active': currentRoute === '/atm' }" @click="closeMobileMenu">
               ATM
-            </router-link>            <router-link v-if="user && user.role === 'EMPLOYEE'" to="/employeePanel" class="nav-link" :class="{ 'active': currentRoute === '/employeePanel' }" @click="closeMobileMenu">
+            </router-link>            
+            <router-link v-if="user && user.role === 'EMPLOYEE'" to="/employeePanel" class="nav-link" :class="{ 'active': currentRoute === '/employeePanel' }" @click="closeMobileMenu">
               Employee Panel
             </router-link>
             <a href="#" class="nav-link logout-link" @click.prevent="handleLogout">

@@ -32,6 +32,9 @@ const currentCurrency = computed(() => {
 // Check if balance is loading
 const isBalanceLoading = computed(() => accountStore.isLoadingTotalBalance);
 
+// Check if user is enabled
+const isUserEnabled = computed(() => authStore.isUserEnabled);
+
 // Check if filters are active
 const hasActiveFilters = computed(() => transactionStore.hasActiveFilters);
 const currentFilters = computed(() => transactionStore.currentFilters);
@@ -265,13 +268,19 @@ onMounted(async () => {
           >
             View All
           </button>
-        </div>
-
-        <div v-if="isLoading || accountStore.isLoading" class="card-loading">
+        </div>        <div v-if="isLoading || accountStore.isLoading" class="card-loading">
           <div v-for="i in 3" :key="i" class="skeleton-loader account-skeleton"></div>
         </div>
         <div v-else-if="accounts.length === 0" class="no-data">
-          No accounts found.
+          <div v-if="!isUserEnabled" class="pending-approval">
+            <p>No accounts found.</p>
+            <p class="approval-message">Account creation will be enabled after employee approval.</p>
+            <button class="create-account-btn" disabled>Create Account</button>
+          </div>
+          <div v-else>
+            <p>No accounts found.</p>
+            <button class="create-account-btn">Create Account</button>
+          </div>
         </div>
         <ul v-else class="accounts-list">
           <li
@@ -305,13 +314,22 @@ onMounted(async () => {
           </div>
           <div v-else class="balance-display">
             <p class="balance">{{ formatCurrency(accountBalance, currentCurrency) }}</p>
-          </div>        
-          <div class="transfer w-100 dashboard-actions">
-            <button class="action-button" @click="openTransferModal">
+          </div>          <div class="transfer w-100 dashboard-actions">
+            <button 
+              class="action-button" 
+              @click="openTransferModal"
+              :disabled="!isUserEnabled"
+              :class="{ 'disabled': !isUserEnabled }"
+            >
               <span class="action-icon">↗</span>
               Transfer Money
             </button>
-            <router-link to="/atm" class="action-button">
+            <router-link 
+              to="/atm" 
+              class="action-button"
+              :class="{ 'disabled': !isUserEnabled }"
+              @click="!isUserEnabled ? $event.preventDefault() : null"
+            >
               <span class="action-icon">🏧</span>
               ATM Access
             </router-link>

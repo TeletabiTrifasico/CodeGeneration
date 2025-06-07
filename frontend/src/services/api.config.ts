@@ -97,6 +97,8 @@ export const API_ENDPOINTS = {
     user: {
         byPage: (pageNumber: number, limit: number) => `/users?page=${pageNumber}&limit=${limit}`,
         byId:(id: number) => `/users/${id}`,
+        disabled: (pageNumber: number, limit: number) => `/users/disabled?page=${pageNumber}&limit=${limit}`,
+        enable: (userId: number) => `/users/${userId}/enable`,
     },
     
     // ATM endpoints

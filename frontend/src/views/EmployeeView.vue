@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUserStore } from '@/stores/user.store';
 import UserItem from '../components/EmployeeUserItem.vue';
+import PendingUserItem from '../components/PendingUserItem.vue';
 
 
 
@@ -12,24 +13,51 @@ const userStore = useUserStore();
 const user = ref(authStore.currentUser);
 const isLoading = ref(true);
 const error = ref('');
-const currentPanel = ref('default');
+const showPending = ref(false);
 let currentPage = 1;
 let pageUsers = {};
 
 const handleLogout = () => {
   authStore.logout();
 };
+
+const toggleView = async () => {
+  showPending.value = !showPending.value;
+  currentPage = 1;
+  await loadData();
+};
+
+const loadData = async () => {
+  isLoading.value = true;
+  if (showPending.value) {
+    pageUsers = await userStore.getDisabledUsersByPage(currentPage);
+  } else {
+    pageUsers = await userStore.getUsersByPage(currentPage);
+  }
+  isLoading.value = false;
+};
+
 const refreshData = () => {
-  
+  loadData();
 };
 async function changePage(changeAmount: number) {
   isLoading.value = true;
   currentPage += changeAmount;
-  pageUsers = await userStore.getUsersByPage(currentPage);
+  
+  if (showPending.value) {
+    pageUsers = await userStore.getDisabledUsersByPage(currentPage);
+  } else {
+    pageUsers = await userStore.getUsersByPage(currentPage);
+  }
+  
   if (Object.keys(pageUsers).length === 0) {
     currentPage--;
-    pageUsers = await userStore.getUsersByPage(currentPage);
-    //Add an error message saying next page was empty
+    // Try again with the previous page
+    if (showPending.value) {
+      pageUsers = await userStore.getDisabledUsersByPage(currentPage);
+    } else {
+      pageUsers = await userStore.getUsersByPage(currentPage);
+    }
   }
   isLoading.value = false;
 }
@@ -38,7 +66,7 @@ onMounted(async () => {
   // Validate authentication token
   try {
     await authStore.validateToken();
-    pageUsers = await userStore.getFirstPage();
+    await loadData();
     console.log(pageUsers);
   } catch (err) {
     console.error('Token validation error:', err);
@@ -54,14 +82,14 @@ onMounted(async () => {
     <header class="panel-header">
       <div class="user-welcome">
         <h1>Welcome, employee {{ user ? user.name : 'User' }}!</h1>
-      </div>
-      <div class="header-actions">
+      </div>      <div class="header-actions">
+        <button @click="toggleView" class="toggle-button">
+          {{ showPending ? 'Show All Users' : 'Show Pending Users' }}
+        </button>
         <button @click="refreshData" class="refresh-button" :disabled="isLoading">
           <span v-if="isLoading" class="spinner small"></span>
           <span v-else>↻</span>
-          Refresh
         </button>
-        <button @click="handleLogout" class="logout-button">Logout</button>
       </div>
     </header>
 
@@ -69,32 +97,39 @@ onMounted(async () => {
     <div v-if="error" class="error-panel">
       <p>{{ error }}</p>
       <button @click="refreshData" class="action-button">Try Again</button>
-    </div>
-
-    <div v-else class="panel-container">
-      <span v-if="isLoading" class="spinner small"></span>
-        <div v-else>
-          <div v-for="item in pageUsers">
-            <UserItem :user="item"/>
+    </div>    <div v-else class="panel-container">
+      <div v-if="isLoading" class="loading-container">
+        <span class="spinner"></span>
+        <p>Loading users...</p>
+      </div>
+      <div v-else class="users-container">
+        <div class="users-list">
+          <div v-for="item in pageUsers" :key="item.id" class="user-item">
+            <PendingUserItem v-if="showPending" :user="item" @user-approved="loadData"/>
+            <UserItem v-else :user="item"/>
+          </div>
+          <div v-if="Object.keys(pageUsers).length === 0" class="no-users">
+            <p>{{ showPending ? 'No pending users found' : 'No users found' }}</p>
           </div>
         </div>
-        <div class="centered">
+        
+        <div class="pagination">
           <button 
             @click="changePage(-1)"
             :disabled="currentPage === 1"
-            class="px-3 py-1 border rounded"
+            class="pagination-button"
           >
-            &lt;
+            ← Previous
           </button>
-          <div>{{currentPage}}</div>
+          <span class="page-info">Page {{ currentPage }}</span>
           <button 
             @click="changePage(1)"
-            class="px-3 py-1 border rounded"
+            class="pagination-button"
           >
-            &gt;
+            Next →
           </button>
         </div>
-        
+      </div>
     </div>
   </div>
 </template>
@@ -129,7 +164,7 @@ h1 {
 }
 
 .refresh-button,
-.logout-button {
+.toggle-button {
   padding: 10px 15px;
   border-radius: 8px;
   font-weight: 500;
@@ -138,6 +173,16 @@ h1 {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.toggle-button {
+  background-color: #2196F3;
+  color: white;
+  border: none;
+}
+
+.toggle-button:hover {
+  background-color: #1976D2;
 }
 
 .refresh-button {
@@ -155,16 +200,6 @@ h1 {
   cursor: not-allowed;
 }
 
-.logout-button {
-  background-color: #f44336;
-  color: white;
-  border: none;
-}
-
-.logout-button:hover {
-  background-color: #d32f2f;
-  transform: translateY(-2px);
-}
 
 .spinner {
   display: inline-block;
@@ -327,9 +362,9 @@ h1 {
   .header-actions {
     width: 100%;
   }
-
   .refresh-button,
-  .logout-button {
+  .logout-button,
+  .toggle-button {
     flex: 1;
     justify-content: center;
   }
@@ -344,6 +379,107 @@ h1 {
   padding: 20px;
   border-radius: 0 0 10px 10px;
   margin-top: -3px;
+  min-height: 400px;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 20px;
+}
+
+.loading-container p {
+  color: #666;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.users-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.users-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 300px;
+}
+
+.user-item {
+  animation: fadeInUp 0.3s ease;
+}
+
+.no-users {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: #888;
+  font-size: 1.1rem;
+}
+
+.no-users p {
+  margin: 0;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  padding: 20px 0;
+  border-top: 1px solid #eee;
+  margin-top: 20px;
+}
+
+.pagination-button {
+  padding: 10px 20px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background-color: #fff;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.pagination-button:hover:not(:disabled) {
+  background-color: #f5f5f5;
+  border-color: #ccc;
+  transform: translateY(-1px);
+}
+
+.pagination-button:disabled {
+  background-color: #f9f9f9;
+  color: #ccc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.page-info {
+  padding: 10px 15px;
+  background-color: #4CAF50;
+  color: white;
+  border-radius: 6px;
+  font-weight: 500;
+  min-width: 80px;
+  text-align: center;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .centered {
