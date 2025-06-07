@@ -4,9 +4,13 @@ import com.codegeneration.banking.api.dto.UsernameRequest;
 import com.codegeneration.banking.api.dto.LimitUpdateRequest;
 import com.codegeneration.banking.api.dto.account.AccountDTO;
 import com.codegeneration.banking.api.dto.account.AccountResponse;
+import com.codegeneration.banking.api.dto.account.CreateAccountRequest;
+import com.codegeneration.banking.api.dto.account.CreateAccountResponse;
 import com.codegeneration.banking.api.dto.transaction.TransactionRequest;
 import com.codegeneration.banking.api.entity.Account;
+import com.codegeneration.banking.api.entity.User;
 import com.codegeneration.banking.api.repository.AccountRepository;
+import com.codegeneration.banking.api.repository.UserRepository;
 import com.codegeneration.banking.api.security.JwtAuthenticationFilter;
 import com.codegeneration.banking.api.security.JwtTokenProvider;
 import com.codegeneration.banking.api.service.interfaces.AccountService;
@@ -21,6 +25,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -31,6 +36,7 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @RestController
@@ -44,6 +50,7 @@ public class AccountController extends BaseController {
     private final JwtTokenProvider jwtTokenProvider;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final AccountRepository accountRepository;
+    private final UserRepository userRepository;
 
     @Operation(summary = "Get all accounts", description = "Returns all accounts belonging to the authenticated user")
     @ApiResponses(value = {
@@ -198,6 +205,64 @@ public class AccountController extends BaseController {
         } catch (Exception e) {
             log.error("Error in GET /account/search", e);
             throw e;
+        }
+    }
+
+    @Operation(summary = "Create new account", description = "Creates a new account for the authenticated user")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Account created successfully",
+                    content = @Content(schema = @Schema(implementation = CreateAccountResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid request data"),
+            @ApiResponse(responseCode = "401", description = "Not authenticated"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    @PostMapping("/create")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<CreateAccountResponse> createAccount(@Valid @RequestBody CreateAccountRequest request) {
+        try {
+            // Get username from authenticated user
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+            if (authentication == null || !authentication.isAuthenticated()) {
+                log.warn("No authentication found for POST /account/create");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            String username = authentication.getName();
+            log.info("Processing POST /account/create for user: {}", username);
+
+            // Find the user
+            Optional<User> userOptional = userRepository.findByUsername(username);
+            if (userOptional.isEmpty()) {
+                log.error("User not found: {}", username);
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            User user = userOptional.get();
+
+            // Create the account
+            Account createdAccount = accountService.createAccount(request, user);
+
+            // Build response
+            CreateAccountResponse response = CreateAccountResponse.builder()
+                    .accountNumber(createdAccount.getAccountNumber())
+                    .accountName(createdAccount.getAccountName())
+                    .accountType(createdAccount.getAccountType())
+                    .currency(createdAccount.getCurrency())
+                    .balance(createdAccount.getBalance())
+                    .dailyTransferLimit(createdAccount.getDailyTransferLimit())
+                    .createdAt(createdAccount.getCreatedAt())
+                    .ownerUsername(user.getUsername())
+                    .build();
+
+            log.info("Account created successfully: {} for user: {}", 
+                    createdAccount.getAccountNumber(), username);
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+
+        } catch (Exception e) {
+            log.error("Error creating account for user", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 

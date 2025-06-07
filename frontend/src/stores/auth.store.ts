@@ -33,10 +33,6 @@ export const useAuthStore = defineStore('auth', {
         authToken(): string | null {
             return this.token;
         },
-
-        isUserEnabled(): boolean {
-            return this.user ? this.user.enabled : true;
-        }
     },
 
     actions: {

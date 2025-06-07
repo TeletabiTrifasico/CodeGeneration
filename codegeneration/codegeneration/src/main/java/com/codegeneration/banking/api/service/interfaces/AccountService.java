@@ -2,6 +2,7 @@ package com.codegeneration.banking.api.service.interfaces;
 
 import com.codegeneration.banking.api.entity.Account;
 import com.codegeneration.banking.api.entity.User;
+import com.codegeneration.banking.api.dto.account.CreateAccountRequest;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -76,4 +77,13 @@ public interface AccountService {
      * @return The account if found, null otherwise
      */
     Account getAccountByNumber(String accountNumber);
+
+    /**
+     * Create a new account for a user
+     *
+     * @param createAccountRequest The account creation request
+     * @param user The user who will own the account
+     * @return The created account
+     */
+    Account createAccount(CreateAccountRequest createAccountRequest, User user);
 }

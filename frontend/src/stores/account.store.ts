@@ -191,6 +191,39 @@ export const useAccountStore = defineStore('account', {
             } finally {
                 this.loading = false;
             }
+        },
+
+        async createAccount(accountData: {
+            accountName: string;
+            accountType: string;
+            currency: string;
+        }) {
+            const authStore = useAuthStore();
+
+            if (!authStore.isLoggedIn) {
+                throw new Error('Not authenticated');
+            }
+
+            try {
+                this.loading = true;
+                this.error = null;
+
+                const response = await apiClient.post(
+                    API_ENDPOINTS.account.create,
+                    accountData,
+                    { headers: getAuthHeader() }
+                );
+
+                const newAccount = response.data;
+
+                return newAccount;
+            } catch (error: any) {
+                console.error('Error creating account:', error);
+                this.error = error.response?.data?.message || 'Failed to create account';
+                throw error;
+            } finally {
+                this.loading = false;
+            }
         }
     }
 });
