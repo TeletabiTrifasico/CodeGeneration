@@ -8,13 +8,12 @@ import com.codegeneration.banking.api.dto.transaction.TransferRequest;
 import com.codegeneration.banking.api.dto.transaction.TransferResponseDTO;
 import com.codegeneration.banking.api.entity.Account;
 import com.codegeneration.banking.api.entity.Transaction;
+import com.codegeneration.banking.api.entity.User;
+import com.codegeneration.banking.api.enums.UserRole;
 import com.codegeneration.banking.api.exception.ResourceNotFoundException;
 import com.codegeneration.banking.api.repository.AccountRepository;
 import com.codegeneration.banking.api.repository.TransactionRepository;
-import com.codegeneration.banking.api.service.interfaces.AccountService;
-import com.codegeneration.banking.api.service.interfaces.CurrencyExchangeService;
-import com.codegeneration.banking.api.service.interfaces.TransactionFilterService;
-import com.codegeneration.banking.api.service.interfaces.TransactionService;
+import com.codegeneration.banking.api.service.interfaces.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -47,6 +46,7 @@ public class TransactionController extends BaseController {
     private final TransactionService transactionService;
     private final TransactionFilterService transactionFilterService;
     private final AccountService accountService;
+    private final UserService userService;
     private final CurrencyExchangeService currencyExchangeService;
     private final TransactionRepository transactionRepository;
     private final AccountRepository accountRepository;
@@ -171,7 +171,15 @@ public class TransactionController extends BaseController {
             String username = authentication.getName();
             log.info("Processing GET /transaction/byaccount/{} for user: {}", accountNumber, username);
 
-            Account account = accountService.getAccountByNumberAndUsername(accountNumber, username);
+            Account account = null;
+            //check if user is an employee
+            if (authentication.getAuthorities().stream().anyMatch(auth -> "ROLE_EMPLOYEE".equals(auth.getAuthority()))) {
+                account = accountService.getAccountByNumber(accountNumber);
+            }
+            else {
+                account = accountService.getAccountByNumberAndUsername(accountNumber, username);
+            }
+
             if (account == null) {
                 throw new ResourceNotFoundException("Account not found with number: " + accountNumber);
             }

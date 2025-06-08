@@ -1,6 +1,7 @@
 package com.codegeneration.banking.api.entity;
 
 import com.codegeneration.banking.api.enums.Currency;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -38,40 +39,32 @@ public class Account {
     private String accountName;
 
     @Column(nullable = false)
-    private String accountType;
-
+    private String accountType;    @Column(nullable = false, precision = 19, scale = 4)
+    @Builder.Default
+    private BigDecimal balance = BigDecimal.ZERO;    @Column(nullable = false)
+    @Builder.Default
+    private Currency currency = Currency.EUR; // Default to Euro as standardized currency    // Daily limits
     @Column(nullable = false, precision = 19, scale = 4)
-    private BigDecimal balance;
-
-    @Column(nullable = false)
-    private Currency currency = Currency.EUR; // Default to Euro as standardized currency
-
-    // Daily limits
+    @Builder.Default
+    private BigDecimal dailyTransferLimit = new BigDecimal("5000.00");    @Column(nullable = false, precision = 19, scale = 4)
+    @Builder.Default
+    private BigDecimal dailyWithdrawalLimit = new BigDecimal("5000.00");    // Per-transaction limits
     @Column(nullable = false, precision = 19, scale = 4)
-    private BigDecimal dailyTransferLimit = new BigDecimal("5000.00");
-
+    @Builder.Default
+    private BigDecimal singleTransferLimit = new BigDecimal("3000.00");    @Column(nullable = false, precision = 19, scale = 4)
+    @Builder.Default
+    private BigDecimal singleWithdrawalLimit = new BigDecimal("500.00");    // Current period usage tracking
     @Column(nullable = false, precision = 19, scale = 4)
-    private BigDecimal dailyWithdrawalLimit = new BigDecimal("1000.00");
-
-    // Per-transaction limits
-    @Column(nullable = false, precision = 19, scale = 4)
-    private BigDecimal singleTransferLimit = new BigDecimal("3000.00");
-
-    @Column(nullable = false, precision = 19, scale = 4)
-    private BigDecimal singleWithdrawalLimit = new BigDecimal("500.00");
-
-    // Current period usage tracking
-    @Column(nullable = false, precision = 19, scale = 4)
-    private BigDecimal transferUsedToday = BigDecimal.ZERO;
-
-    @Column(nullable = false, precision = 19, scale = 4)
-    private BigDecimal withdrawalUsedToday = BigDecimal.ZERO;
-
-    @Column(nullable = false)
+    @Builder.Default
+    private BigDecimal transferUsedToday = BigDecimal.ZERO;    @Column(nullable = false, precision = 19, scale = 4)
+    @Builder.Default
+    private BigDecimal withdrawalUsedToday = BigDecimal.ZERO;    @Column(nullable = false)
+    @Builder.Default
     private LocalDateTime lastLimitResetDate = LocalDateTime.now();
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonBackReference   // This pairs with @JsonManagedReference on User.accounts
     private User user;
 
     @Column(nullable = false)
@@ -79,6 +72,11 @@ public class Account {
 
     @Column(nullable = false)
     private LocalDateTime updatedAt;
+
+
+    //for tests
+    public Account(long l, String testAccountNumber, BigDecimal bigDecimal) {
+    }
 
     @PrePersist
     protected void onCreate() {

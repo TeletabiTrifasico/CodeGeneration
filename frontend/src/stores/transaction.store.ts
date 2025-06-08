@@ -70,6 +70,9 @@ export const useTransactionStore = defineStore('transaction', {
                 this.loading = false;
             }
         },
+        clearTransactions() {
+            this.transactions = [];
+        },
 
         async fetchTransactionsByAccount(accountNumber: string) {
             const authStore = useAuthStore();

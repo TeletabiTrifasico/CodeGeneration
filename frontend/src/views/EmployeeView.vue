@@ -1,35 +1,78 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth.store';
-import EmployeeUsers from '../components/EmployeeUsers.vue'; // Make sure this path is correct
-import EmployeeDefault from '../components/EmployeeDefault.vue'; // Make sure this path is correct
+import { useUserStore } from '@/stores/user.store';
+import UserItem from '../components/EmployeeUserItem.vue';
+import PendingUserItem from '../components/PendingUserItem.vue';
 
 
 
 // User reactive state
 const authStore = useAuthStore();
+const userStore = useUserStore();
 const user = ref(authStore.currentUser);
 const isLoading = ref(true);
 const error = ref('');
-const currentPanel = ref('default');
+const showPending = ref(false);
+let currentPage = 1;
+let pageUsers = {};
 
 const handleLogout = () => {
   authStore.logout();
 };
-const ChangeTab = (tab) => {
-    console.log(tab);
-    currentPanel.value = tab;
+
+const toggleView = async () => {
+  showPending.value = !showPending.value;
+  currentPage = 1;
+  await loadData();
+};
+
+const loadData = async () => {
+  isLoading.value = true;
+  if (showPending.value) {
+    pageUsers = await userStore.getDisabledUsersByPage(currentPage);
+  } else {
+    pageUsers = await userStore.getUsersByPage(currentPage);
+  }
+  isLoading.value = false;
+};
+
+const refreshData = () => {
+  loadData();
+};
+async function changePage(changeAmount: number) {
+  isLoading.value = true;
+  currentPage += changeAmount;
+  
+  if (showPending.value) {
+    pageUsers = await userStore.getDisabledUsersByPage(currentPage);
+  } else {
+    pageUsers = await userStore.getUsersByPage(currentPage);
+  }
+  
+  if (Object.keys(pageUsers).length === 0) {
+    currentPage--;
+    // Try again with the previous page
+    if (showPending.value) {
+      pageUsers = await userStore.getDisabledUsersByPage(currentPage);
+    } else {
+      pageUsers = await userStore.getUsersByPage(currentPage);
+    }
+  }
+  isLoading.value = false;
 }
 
 onMounted(async () => {
   // Validate authentication token
   try {
     await authStore.validateToken();
+    await loadData();
+    console.log(pageUsers);
   } catch (err) {
     console.error('Token validation error:', err);
     // authStore.logout() will be called in validateToken if it fails
   }
-    isLoading.value = false;
+  isLoading.value = false;
 });
 </script>
 
@@ -39,14 +82,14 @@ onMounted(async () => {
     <header class="panel-header">
       <div class="user-welcome">
         <h1>Welcome, employee {{ user ? user.name : 'User' }}!</h1>
-      </div>
-      <div class="header-actions">
+      </div>      <div class="header-actions">
+        <button @click="toggleView" class="toggle-button">
+          {{ showPending ? 'Show All Users' : 'Show Pending Users' }}
+        </button>
         <button @click="refreshData" class="refresh-button" :disabled="isLoading">
           <span v-if="isLoading" class="spinner small"></span>
           <span v-else>↻</span>
-          Refresh
         </button>
-        <button @click="handleLogout" class="logout-button">Logout</button>
       </div>
     </header>
 
@@ -54,19 +97,39 @@ onMounted(async () => {
     <div v-if="error" class="error-panel">
       <p>{{ error }}</p>
       <button @click="refreshData" class="action-button">Try Again</button>
-    </div>
-
-    <div v-else class="panel-content">
-        <div class="tabs-container">
-            <a :class="{'active-tab': currentPanel === 'default'}" class = "tab-link" @click.prevent="ChangeTab('default')" href="#">default</a>
-            <a :class="{'active-tab': currentPanel === 'users'} "class = "tab-link" @click.prevent="ChangeTab('users')" href="#">users</a>
-            <a :class="{'active-tab': currentPanel === 'tab3'} "class = "tab-link" @click.prevent="ChangeTab('tab3')" href="#">3</a>
+    </div>    <div v-else class="panel-container">
+      <div v-if="isLoading" class="loading-container">
+        <span class="spinner"></span>
+        <p>Loading users...</p>
+      </div>
+      <div v-else class="users-container">
+        <div class="users-list">
+          <div v-for="item in pageUsers" :key="item.id" class="user-item">
+            <PendingUserItem v-if="showPending" :user="item" @user-approved="loadData"/>
+            <UserItem v-else :user="item"/>
+          </div>
+          <div v-if="Object.keys(pageUsers).length === 0" class="no-users">
+            <p>{{ showPending ? 'No pending users found' : 'No users found' }}</p>
+          </div>
         </div>
-        <div class="panel-container">
-            <div v-if="currentPanel == 'default'"><EmployeeDefault /></div>
-            <div v-else-if="currentPanel == 'users'"><EmployeeUsers /></div>
-            <div v-if="currentPanel == 'tab3'">3</div>
+        
+        <div class="pagination">
+          <button 
+            @click="changePage(-1)"
+            :disabled="currentPage === 1"
+            class="pagination-button"
+          >
+            ← Previous
+          </button>
+          <span class="page-info">Page {{ currentPage }}</span>
+          <button 
+            @click="changePage(1)"
+            class="pagination-button"
+          >
+            Next →
+          </button>
         </div>
+      </div>
     </div>
   </div>
 </template>
@@ -100,7 +163,8 @@ h1 {
   gap: 15px;
 }
 
-.refresh-button, .logout-button {
+.refresh-button,
+.toggle-button {
   padding: 10px 15px;
   border-radius: 8px;
   font-weight: 500;
@@ -109,6 +173,16 @@ h1 {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.toggle-button {
+  background-color: #2196F3;
+  color: white;
+  border: none;
+}
+
+.toggle-button:hover {
+  background-color: #1976D2;
 }
 
 .refresh-button {
@@ -126,16 +200,6 @@ h1 {
   cursor: not-allowed;
 }
 
-.logout-button {
-  background-color: #f44336;
-  color: white;
-  border: none;
-}
-
-.logout-button:hover {
-  background-color: #d32f2f;
-  transform: translateY(-2px);
-}
 
 .spinner {
   display: inline-block;
@@ -154,7 +218,9 @@ h1 {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .error-panel {
@@ -176,8 +242,12 @@ h1 {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .skeleton-loader {
@@ -188,8 +258,12 @@ h1 {
 }
 
 @keyframes loading {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 .card-loading {
@@ -212,12 +286,6 @@ h1 {
 
 .negative {
   color: #F44336;
-}
-
-.panel-actions {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
 }
 
 .action-button {
@@ -246,10 +314,6 @@ h1 {
   transform: translateY(-1px);
 }
 
-.action-icon {
-  font-size: 1.2rem;
-}
-
 /* Responsive Styles */
 @media (min-width: 1400px) {
   .view-container {
@@ -267,9 +331,6 @@ h1 {
   }
 }
 
-@media (min-width: 768px) and (max-width: 991px) {
-}
-
 @media (min-width: 576px) and (max-width: 767px) {
   .panel-header {
     flex-direction: column;
@@ -280,11 +341,6 @@ h1 {
   h1 {
     font-size: 1.8rem;
   }
-
-  .panel-actions {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
 }
 
 @media (max-width: 575px) {
@@ -306,77 +362,129 @@ h1 {
   .header-actions {
     width: 100%;
   }
-
-  .refresh-button, .logout-button {
+  .refresh-button,
+  .logout-button,
+  .toggle-button {
     flex: 1;
     justify-content: center;
   }
-
-
-  .panel-actions {
-    grid-template-columns: 1fr;
-    gap: 15px;
-  }
-
 
   .action-button {
     padding: 15px;
   }
 }
-/* tab styling */
-.tabs-container {
-  display: flex;
-  justify-content: flex-start;
-  gap: 20px; /* Adjust the gap between the tabs */
-}
 
-.tab-link {
-  text-decoration: none;
-  color: #555; /* Default color */
-  font-size: 1.1rem;
-  font-weight: 600;
-  padding: 10px 20px;
-  border-radius: 8px 8px 0px 0px;
-  transition: all 0.3s ease; /* Smooth transition for hover and active states */
-  cursor: pointer;
-  position: relative; /* Positioning for top outline */
-  border: 2px solid black; /* Black border for unselected tabs */
-  border-bottom-color: var(--bg-color);
-  border-bottom-width: 5px;
-}
-
-.tab-link:hover {
-  background-color: #f0f0f0; /* Light hover background */
-}
-
-.tab-link:focus {
-  outline: none; /* Remove outline for better custom focus styling */
-}
-
-/* Green outline with gradient for the active tab */
-.active-tab {
-  border-top-color: green;
-  border-top-width: 5px;
-}
-
-/* Optional: Hover effect for the tabs */
-.tab-link:hover:not(.active-tab) {
-  background-color: #f0f0f0; /* Light hover background */
-}
-
-/* Styling for the panel container */
 .panel-container {
-  border: 2px solid black; /* Black outline around the panel */
+  border: 2px solid #ddd;
   padding: 20px;
-  border-radius: 0px 0px 10px 10px; /* Optional: Add rounded corners to the panel */
+  border-radius: 0 0 10px 10px;
   margin-top: -3px;
+  min-height: 400px;
 }
 
-/* Responsive Styles */
-@media (max-width: 767px) {
-  .tabs-container {
-    flex-direction: column;
-    align-items: flex-start;
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 20px;
+}
+
+.loading-container p {
+  color: #666;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.users-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.users-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 300px;
+}
+
+.user-item {
+  animation: fadeInUp 0.3s ease;
+}
+
+.no-users {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: #888;
+  font-size: 1.1rem;
+}
+
+.no-users p {
+  margin: 0;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  padding: 20px 0;
+  border-top: 1px solid #eee;
+  margin-top: 20px;
+}
+
+.pagination-button {
+  padding: 10px 20px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background-color: #fff;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.pagination-button:hover:not(:disabled) {
+  background-color: #f5f5f5;
+  border-color: #ccc;
+  transform: translateY(-1px);
+}
+
+.pagination-button:disabled {
+  background-color: #f9f9f9;
+  color: #ccc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.page-info {
+  padding: 10px 15px;
+  background-color: #4CAF50;
+  color: white;
+  border-radius: 6px;
+  font-weight: 500;
+  min-width: 80px;
+  text-align: center;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
   }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.centered {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
 }
 </style>

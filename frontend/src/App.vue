@@ -31,7 +31,10 @@ onMounted(() => {
     </main>
     <footer class="app-footer">
       <div class="footer-content">
-        <p>&copy; {{ new Date().getFullYear() }} Banking App. All rights reserved.</p>
+        <div class="footer-brand">
+          <img src="./assets/bank logo.png" alt="Bank Logo" class="footer-logo">
+          <p class="footer-copyright">&copy; {{ new Date().getFullYear() }} Bank Name. All rights reserved.</p>
+        </div>
         <div class="footer-links">
           <a href="#" class="footer-link">Privacy Policy</a>
           <a href="#" class="footer-link">Terms of Service</a>
@@ -128,6 +131,18 @@ body {
   gap: 1rem;
 }
 
+.footer-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.footer-logo {
+  height: 40px;
+  margin-bottom: 0.8rem;
+  filter: brightness(0) invert(1); /*to make the logo white*/
+}
+
 .footer-links {
   display: flex;
   gap: 1.5rem;
@@ -150,6 +165,10 @@ body {
     flex-direction: column;
     text-align: center;
     gap: 1.5rem;
+  }
+
+  .footer-brand {
+    align-items: center;
   }
 
   .footer-links {

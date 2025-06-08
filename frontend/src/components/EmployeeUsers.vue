@@ -4,11 +4,25 @@ import UserItem from './EmployeeUserItem.vue';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUserStore } from '@/stores/user.store';
 
-const authStore = useAuthStore();
-const userStore = useUserStore();
+
+// User reactive state
+const user = ref(AuthService.getCurrentUser());
 const isLoading = ref(true);
+let currentPage = 1;
 const error = ref('');
 let pageUsers = {};
+
+async function changePage(changeAmount: number) {
+  isLoading.value = true;
+  currentPage += changeAmount;
+  pageUsers = await userStore.getUsersByPage(currentPage);
+  if (Object.keys(pageUsers).length === 0) {
+    currentPage--;
+    pageUsers = await userStore.getUsersByPage(currentPage);
+    //Add an error message saying next page was empty
+  }
+  isLoading.value = false;
+}
 
 onMounted(async () => {
   // Validate authentication token
@@ -25,13 +39,6 @@ onMounted(async () => {
 </script>
 
 <template>
-  <span v-if="isLoading" class="spinner small"></span>
-  <div v-else>
-    <div v-for="item in pageUsers">
-      <UserItem :user="item"/>
-    </div>
-  </div>
-  
 </template>
 
 <style scoped>
@@ -49,5 +56,10 @@ onMounted(async () => {
   width: 14px;
   height: 14px;
   border-width: 2px;
+}
+.centered {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
 }
 </style>

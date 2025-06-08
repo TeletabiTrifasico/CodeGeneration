@@ -4,8 +4,7 @@ import { useAuthStore } from '@/stores/auth.store';
 
 
 // User reactive state
-const authStore = useAuthStore();
-const user = ref(authStore.currentUser);
+const user = ref(AuthService.getCurrentUser());
 const isLoading = ref(true);
 const error = ref('');
 </script>

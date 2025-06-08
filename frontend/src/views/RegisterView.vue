@@ -80,21 +80,17 @@ const submitForm = async () => {
       email: form.email,
       password: form.password
     };
-
+    
     // Send POST request to the register API endpoint with form data
     await apiClient.post('/auth/register', payload);
 
     // If successful, set a success message
-    successMessage.value = 'Registration successful! You can now log in.';
+    successMessage.value = 'Registration successful! You can now log in. Your account will be fully activated after employee approval.';
 
     // Clear password fields
     form.password = '';
     form.confirmPassword = '';
 
-    // Redirect to login after 2 seconds
-    setTimeout(() => {
-      router.push('/login');
-    }, 2000);
   } catch (error: any) {
     // If an error occurred, extract error message
     if (error && error.status === 409) {

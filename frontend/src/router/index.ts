@@ -4,13 +4,15 @@ import LoginView from '../views/LoginView.vue';
 import RegisterView from '@/views/RegisterView.vue';
 import { useAuthStore } from '@/stores/auth.store';
 import EmployeeView from '@/views/EmployeeView.vue';
-import UserOverview from '@/views/UserOverview.vue';
+import AtmView from '@/views/AtmView.vue';
+import UserOverview from '@/views/EmployeeUserOverview.vue';
 
 const routes: Array<RouteRecordRaw> = [
     {
         path: '/',
         name: 'home',
-        component: HomeView
+        component: HomeView,
+        meta: { guestOnly: true }
     },
     {
         path: '/login',
@@ -32,13 +34,19 @@ const routes: Array<RouteRecordRaw> = [
         meta: { requiresAuth: true }
     },
     {
+        path: '/atm',
+        name: 'atm',
+        component: AtmView,
+        meta: { requiresAuth: true }
+    },
+    {
         path: '/employeePanel',
         name: 'employeePanel',
         component: EmployeeView,
         meta: { requiresAuth: true }
     },
     {
-        path: '/employeePanel/user/',
+        path: '/employeePanel/user/:id',
         name: 'userOverview',
         component: UserOverview,
         meta: { requiresAuth: true }
@@ -84,11 +92,9 @@ router.beforeEach(async (to, from, next) => {
                 query: { redirect: to.fullPath }  // Save the route they were trying to access
             });
         }
-    }
-    // Logic for guest-only routes
+    }    // Logic for guest-only routes
     else if (guestOnly && isAuthenticated) {
-        // Redirect to dashboard if trying to access login/register while authenticated
-        // TODO: Permission checks, if employee -> employee dashboard, else to regular dashboard
+        // Redirect authenticated users accessing guest-only routes to dashboard
         next({ name: 'dashboard' });
     }
     // Allow access to public routes

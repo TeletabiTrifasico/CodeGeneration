@@ -30,6 +30,9 @@ public class UserDTO {
     @Schema(description = "User role", example = "CLIENT")
     private UserRole role;
 
+    @Schema(description = "Whether the user account is enabled", example = "true")
+    private boolean enabled;
+
     /**
      * method to create a UserDTO from a User entity.
      * @param user The User entity.
@@ -45,6 +48,7 @@ public class UserDTO {
                 .name(user.getName())
                 .email(user.getEmail())
                 .role(user.getRole())
+                .enabled(user.isEnabled())
                 .build();
     }
 }

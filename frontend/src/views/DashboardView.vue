@@ -6,6 +6,7 @@ import { useTransactionStore } from '@/stores/transaction.store';
 import { Account, Transaction } from '@/models';
 import { TransactionFilters } from '@/services/api.config';
 import TransferModal from "@/components/modals/TransferModal.vue";
+import CreateAccountModal from "@/components/modals/CreateAccountModal.vue";
 import TransactionFilter from "@/components/TransactionFilter.vue";
 
 // Get the stores
@@ -16,11 +17,14 @@ const transactionStore = useTransactionStore();
 const isLoading = ref(true);
 const error = ref('');
 const showTransferModal = ref(false);
+const showCreateAccountModal = ref(false);
 
 // Get sorted transactions from store
 const sortedTransactions = computed(() => transactionStore.sortedTransactions);
 
 // Get account data from stores
+const user = computed(() => authStore.currentUser);
+const isUserEnabled = computed(() => user.value?.enabled ?? false);
 const accounts = computed(() => accountStore.allAccounts);
 const selectedAccount = computed(() => accountStore.currentAccount);
 const accountBalance = computed(() => accountStore.accountBalance);
@@ -124,10 +128,6 @@ const refreshData = async () => {
   }
 };
 
-const handleLogout = () => {
-  authStore.logout();
-};
-
 const handleFiltersChanged = (filters: TransactionFilters) => {
   const hasFilters = Object.values(filters).some(value =>
       value !== undefined && value !== null && value !== ''
@@ -144,6 +144,13 @@ const handleFiltersChanged = (filters: TransactionFilters) => {
 // Transaction display helpers
 const getTransactionDescription = (transaction: Transaction): string => {
   const userAccountNumbers = accounts.value.map(acc => acc.accountNumber);
+
+  // Check if it's an ATM deposit or withdrawal first
+  if (transaction.transactionType === 'ATM_DEPOSIT') {
+    return `ATM Deposit`;
+  } else if (transaction.transactionType === 'ATM_WITHDRAWAL') {
+    return `ATM Withdrawal`;
+  }
 
   let isIncoming = userAccountNumbers.includes(transaction.destinationAccount.accountNumber) &&
       !userAccountNumbers.includes(transaction.sourceAccount.accountNumber);
@@ -210,6 +217,26 @@ const handleTransferComplete = async () => {
   await refreshData();
 };
 
+// Create account modal methods
+const openCreateAccountModal = () => {
+  showCreateAccountModal.value = true;
+};
+
+const closeCreateAccountModal = () => {
+  showCreateAccountModal.value = false;
+};
+
+const handleAccountCreated = async (newAccount: Account) => {
+  // Close modal
+  showCreateAccountModal.value = false;
+  
+  // Refresh account data
+  await accountStore.fetchAllAccounts();
+  
+  // Select the new account
+  accountStore.setSelectedAccount(newAccount);
+};
+
 // Watch for changes to selectedAccount to refresh transactions
 watch(() => accountStore.currentAccount, async () => {
   if (hasActiveFilters.value) {
@@ -237,18 +264,10 @@ onMounted(async () => {
 
 <template>
   <div class="dashboard-container">
-    <!-- Header with user info and actions -->
-    <header class="dashboard-header">
+    <!-- Header with user info -->    
+     <header class="dashboard-header">
       <div class="user-welcome">
         <h1>Welcome, {{ authStore.currentUser ? authStore.currentUser.name : 'User' }}!</h1>
-      </div>
-      <div class="header-actions">
-        <button @click="refreshData" class="refresh-button" :disabled="isLoading">
-          <span v-if="isLoading" class="spinner small"></span>
-          <span v-else>↻</span>
-          Refresh
-        </button>
-        <button @click="handleLogout" class="logout-button">Logout</button>
       </div>
     </header>
 
@@ -263,20 +282,28 @@ onMounted(async () => {
       <div class="accounts-panel">
         <div class="accounts-header">
           <h2>Your Accounts</h2>
-          <button
-              v-if="selectedAccount"
-              @click="viewAllAccounts"
-              class="view-all-button"
-          >
-            View All
-          </button>
-        </div>
+          <div class="header-actions">
 
+            <button
+                @click="openCreateAccountModal"
+                class="create-account-btn primary">
+              <span class="action-icon">+</span>
+              Create Account
+            </button>
+          </div>
+        </div>
+        
         <div v-if="isLoading || accountStore.isLoading" class="card-loading">
           <div v-for="i in 3" :key="i" class="skeleton-loader account-skeleton"></div>
         </div>
-        <div v-else-if="accounts.length === 0" class="no-data">
-          No accounts found.
+        
+        <div v-else-if="accounts.length === 0" class="no-accounts-state">
+          <div class="empty-state-icon">🏦</div>
+          <h3>No accounts yet</h3>
+          <p class="get-started-message">
+            Create your first account to start banking with us.
+          </p>
+
         </div>
         <ul v-else class="accounts-list">
           <li
@@ -310,25 +337,33 @@ onMounted(async () => {
           </div>
           <div v-else class="balance-display">
             <p class="balance">{{ formatCurrency(accountBalance, currentCurrency) }}</p>
-          </div>
-          <div class="transfer w-100">
-            <button class="action-button" @click="openTransferModal">
+          </div>          <div class="transfer w-100 dashboard-actions">
+            <button 
+              class="action-button" 
+              @click="openTransferModal">
               <span class="action-icon">↗</span>
-              Transfer Money
+              Transfer
             </button>
+            <router-link 
+              to="/atm" 
+              class="action-button">
+              <span class="action-icon">🏧</span>
+              ATM 
+            </router-link>
           </div>
+          
         </div>
 
         <!-- Recent transactions card -->
         <div class="summary-card transactions-card">
-          <div class="transactions-header">
+            <div class="transactions-header">
             <h2>
               {{ selectedAccount ? 'Account Transactions' : 'Recent Transactions' }}
               <span v-if="hasActiveFilters" class="filter-indicator">
-                (Filtered)
+              (Filtered)
               </span>
             </h2>
-          </div>
+            </div>
 
           <!-- Transaction Filter Component -->
           <TransactionFilter
@@ -365,17 +400,22 @@ onMounted(async () => {
                 {{ `-${formatCurrency(transaction.amount, transaction.currency)}` }}
               </span>
             </li>
-          </ul>
-        </div>
+          </ul>        </div>
       </div>
-    </div>
+    </div>    <!-- Modals -->
+    <TransferModal
+        :show="showTransferModal"
+        :selected-account="selectedAccount"
+        @close="closeTransferModal"
+        @transfer-complete="handleTransferComplete"
+    />
+    
+    <CreateAccountModal
+        :is-open="showCreateAccountModal"
+        @close="closeCreateAccountModal"
+        @account-created="handleAccountCreated"
+    />
   </div>
-  <TransferModal
-      :show="showTransferModal"
-      :selected-account="selectedAccount"
-      @close="closeTransferModal"
-      @transfer-complete="handleTransferComplete"
-  />
 </template>
 
 <style scoped>
@@ -387,12 +427,7 @@ onMounted(async () => {
 }
 
 .dashboard-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   margin-bottom: 40px;
-  flex-wrap: wrap;
-  gap: 20px;
 }
 
 h1 {
@@ -407,25 +442,26 @@ h1 {
   gap: 15px;
 }
 
-.refresh-button, .logout-button, .view-all-button {
-  padding: 10px 15px;
-  border-radius: 8px;
+.refresh-button, .view-all-button {
+  padding: 8px 12px;
+  border-radius: 6px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.3s ease;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  font-size: 0.9rem;
+  background-color: #f8f9fa;
+  color: #495057;
+  border: 1px solid #dee2e6;
+  text-decoration: none;
 }
 
-.refresh-button, .view-all-button {
-  background-color: #f5f5f5;
-  color: #333;
-  border: 1px solid #ddd;
-}
-
-.refresh-button:hover:not(:disabled), .view-all-button:hover {
-  background-color: #e8e8e8;
+.refresh-button:hover:not(:disabled), 
+.view-all-button:hover {
+  background-color: #e9ecef;
+  border-color: #adb5bd;
 }
 
 .refresh-button:disabled {
@@ -433,19 +469,11 @@ h1 {
   cursor: not-allowed;
 }
 
-.logout-button {
-  background-color: #f44336;
-  color: white;
-  border: none;
-}
-
-.logout-button:hover {
-  background-color: #d32f2f;
-  transform: translateY(-2px);
-}
-
 .transfer {
-  margin-top: 100%;
+  margin-top: auto;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .spinner {
@@ -516,6 +544,121 @@ h1 {
   font-size: 1.4rem;
   color: #555;
   margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+/* Create Account Button Styles */
+.create-account-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+}
+
+.create-account-btn.primary {
+  background: linear-gradient(135deg, #4CAF50, #45a049);
+  color: white;
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+}
+
+.create-account-btn.primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #45a049, #3e8e41);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+}
+
+.create-account-btn.large {
+  padding: 14px 24px;
+  font-size: 1.1rem;
+  border-radius: 10px;
+}
+
+.create-account-btn:disabled {
+  background: #e0e0e0;
+  color: #999;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.create-account-btn .action-icon {
+  font-size: 1.2em;
+  font-weight: bold;
+}
+
+/* No Accounts State */
+.no-accounts-state {
+  text-align: center;
+  padding: 60px 40px;
+  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  border-radius: 16px;
+  border: 2px dashed #dee2e6;
+  margin: 20px 0;
+}
+
+.empty-state-icon {
+  font-size: 4rem;
+  margin-bottom: 20px;
+  opacity: 0.7;
+}
+
+.no-accounts-state h3 {
+  font-size: 1.5rem;
+  color: #333;
+  margin: 0 0 12px 0;
+  font-weight: 600;
+}
+
+.no-accounts-state p {
+  color: #666;
+  margin: 0 0 24px 0;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.get-started-message {
+  color: #555 !important;
+  font-weight: 500;
+}
+
+.approval-message {
+  color: #856404 !important;
+  background: #fff3cd;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid #ffeaa7;
+  display: inline-block;
+  margin: 16px 0 24px 0 !important;
+}
+
+.approval-status {
+  margin-top: 20px;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.status-badge.pending {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
 }
 
 .accounts-list {
@@ -626,6 +769,10 @@ h1 {
 
 .transactions-header {
   position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
 }
 
 .filter-indicator {
@@ -819,36 +966,41 @@ h1 {
 }
 
 .dashboard-actions {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  width: 100%;
 }
 
 .action-button {
-  padding: 18px;
+  padding: 15px 20px;
   background-color: #4CAF50;
   color: white;
   border: none;
   border-radius: 10px;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.3s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  width: 100%;
+  gap: 8px;
+  flex: 1;
+  min-width: 140px;
+  text-decoration: none;
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.2);
 }
 
 .action-button:hover {
   background-color: #43a047;
-  transform: translateY(-3px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
 }
 
 .action-button:active {
-  transform: translateY(-1px);
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(76, 175, 80, 0.2);
 }
 
 .action-icon {
@@ -889,15 +1041,15 @@ h1 {
     flex-direction: column;
     gap: 8px;
   }
+
+  .action-button {
+    padding: 12px 16px;
+    font-size: 0.95rem;
+    min-width: 120px;
+  }
 }
 
 @media (min-width: 576px) and (max-width: 767px) {
-  .dashboard-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 15px;
-  }
-
   h1 {
     font-size: 1.8rem;
   }
@@ -905,10 +1057,6 @@ h1 {
   .dashboard-summary {
     grid-template-columns: 1fr;
     gap: 20px;
-  }
-
-  .dashboard-actions {
-    grid-template-columns: repeat(3, 1fr);
   }
 
   .summary-card {
@@ -919,6 +1067,16 @@ h1 {
     flex-direction: column;
     gap: 8px;
   }
+
+  .action-button {
+    padding: 12px 15px;
+    font-size: 0.9rem;
+    min-width: 110px;
+  }
+
+  .dashboard-actions {
+    gap: 10px;
+  }
 }
 
 @media (max-width: 575px) {
@@ -927,9 +1085,6 @@ h1 {
   }
 
   .dashboard-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 15px;
     margin-bottom: 30px;
   }
 
@@ -937,23 +1092,9 @@ h1 {
     font-size: 1.7rem;
   }
 
-  .header-actions {
-    width: 100%;
-  }
-
-  .refresh-button, .logout-button {
-    flex: 1;
-    justify-content: center;
-  }
-
   .dashboard-summary {
     grid-template-columns: 1fr;
     gap: 20px;
-  }
-
-  .dashboard-actions {
-    grid-template-columns: 1fr;
-    gap: 15px;
   }
 
   .summary-card {
@@ -962,10 +1103,6 @@ h1 {
 
   .balance {
     font-size: 2rem;
-  }
-
-  .action-button {
-    padding: 15px;
   }
 
   .accounts-list {
@@ -983,6 +1120,51 @@ h1 {
 
   .breakdown-item {
     text-align: center;
+  }
+
+  .dashboard-actions {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .action-button {
+    padding: 14px 15px;
+    font-size: 0.9rem;
+    min-width: auto;
+    width: 100%;
+  }
+
+  .transactions-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  .refresh-button {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+  }
+
+  .header-actions {
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .create-account-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .no-accounts-state {
+    padding: 40px 20px;
+  }
+
+  .no-accounts-state h3 {
+    font-size: 1.3rem;
+  }
+
+  .empty-state-icon {
+    font-size: 3rem;
   }
 }
 </style>

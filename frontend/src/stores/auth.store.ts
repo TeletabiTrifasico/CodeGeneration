@@ -19,7 +19,7 @@ export const useAuthStore = defineStore('auth', {
         expiresAt: Number(localStorage.getItem('token_expires_at') || '0'),
         isAuthenticated: false,
     }),
-
+    
     getters: {
         isLoggedIn(): boolean {
             if (!this.token || !this.expiresAt) return false;
@@ -32,7 +32,7 @@ export const useAuthStore = defineStore('auth', {
 
         authToken(): string | null {
             return this.token;
-        }
+        },
     },
 
     actions: {

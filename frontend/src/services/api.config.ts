@@ -74,12 +74,13 @@ export const API_ENDPOINTS = {
         logout: '/auth/logout',
         validate: '/auth/validate',
         register: '/auth/register'
-    },
-    account: {
+    },    account: {
         getAll: '/account/getall',
         details: (accountNumber: string) => `/account/details/${accountNumber}`,
         search: '/account/search',
-        getIBANByUsername: '/account/getIBANByUsername'
+        getIBANByUsername: '/account/getIBANByUsername',
+        limits: '/account/limits',
+        create: '/account/create'
     },
     transaction: {
         getAll: '/transaction/getall',
@@ -94,8 +95,16 @@ export const API_ENDPOINTS = {
         convert: '/currency/convert'
     },
     user: {
-        getAll: '/users/getall',
-        byPage: (pageNumber: number, limit: number) => `/users/getPage?page=${pageNumber}&limit=${limit}`,
+        byPage: (pageNumber: number, limit: number) => `/users?page=${pageNumber}&limit=${limit}`,
+        byId:(id: number) => `/users/${id}`,
+        disabled: (pageNumber: number, limit: number) => `/users/disabled?page=${pageNumber}&limit=${limit}`,
+        enable: (userId: number) => `/users/${userId}/enable`,
+    },
+    
+    // ATM endpoints
+    atm: {
+        deposit: '/atm/deposit', // POST 
+        withdraw: '/atm/withdraw' // POST
     },
 };
 

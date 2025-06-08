@@ -14,6 +14,7 @@ import com.codegeneration.banking.api.security.JwtTokenProvider;
 import com.codegeneration.banking.api.service.interfaces.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
@@ -60,8 +61,15 @@ public class AuthServiceImpl implements AuthService {
                     .refreshToken(refreshToken)
                     .user(userDTO)
                     .expiresIn(jwtTokenProvider.getExpirationTime())
-                    .build();
-        } catch (AuthenticationException e) {
+                    .build();        } catch (AuthenticationException e) {
+            // Check if it's specifically a DisabledException
+            if (e instanceof DisabledException) {
+                throw new UnauthorizedException("Account is disabled. Please contact an employee for account activation.");
+            }
+            // Check if the exception message indicates a disabled user account
+            if (e.getMessage() != null && e.getMessage().toLowerCase().contains("disabled")) {
+                throw new UnauthorizedException("Account is disabled. Please contact an employee for account activation.");
+            }
             throw new UnauthorizedException("Invalid credentials");
         }
     }
@@ -90,14 +98,14 @@ public class AuthServiceImpl implements AuthService {
         if (userRepository.existsByEmail(registerRequest.getEmail())) {
             throw new ConflictException("Email already exists: " + registerRequest.getEmail());
         }
-
+        
         User newUser = User.builder()
                 .username(registerRequest.getUsername())
                 .name(registerRequest.getName())
                 .email(registerRequest.getEmail())
                 .password(passwordEncoder.encode(registerRequest.getPassword()))
                 .role(UserRole.CLIENT)
-                .enabled(true)
+                .enabled(false)  // Users are disabled by default and need employee approval
                 .build();
 
         User savedUser = userRepository.save(newUser);

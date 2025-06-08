@@ -62,7 +62,6 @@ public class DataLoader implements CommandLineRunner {
                 .role(UserRole.CLIENT)
                 .enabled(true)
                 .build();
-
         User user2 = User.builder()
                 .username("user2")
                 .password(passwordEncoder.encode("user123"))
@@ -72,7 +71,35 @@ public class DataLoader implements CommandLineRunner {
                 .enabled(true)
                 .build();
 
-        userRepository.saveAll(Arrays.asList(employee, user1, user2));
+        // Disabled users pending approval
+        User pendingUser1 = User.builder()
+                .username("pending1")
+                .password(passwordEncoder.encode("pending123"))
+                .name("Alice Johnson")
+                .email("alice.johnson@example.com")
+                .role(UserRole.CLIENT)
+                .enabled(false)
+                .build();
+
+        User pendingUser2 = User.builder()
+                .username("pending2")
+                .password(passwordEncoder.encode("pending123"))
+                .name("Bob Wilson")
+                .email("bob.wilson@example.com")
+                .role(UserRole.CLIENT)
+                .enabled(false)
+                .build();
+
+        User pendingUser3 = User.builder()
+                .username("pending3")
+                .password(passwordEncoder.encode("pending123"))
+                .name("Carol Davis")
+                .email("carol.davis@example.com")
+                .role(UserRole.CLIENT)
+                .enabled(false)
+                .build();
+
+        userRepository.saveAll(Arrays.asList(employee, user1, user2, pendingUser1, pendingUser2, pendingUser3));
 
         log.info("Sample users loaded successfully");
     }
@@ -210,7 +237,7 @@ public class DataLoader implements CommandLineRunner {
                 .currency(Currency.EUR)
                 .description("Salary deposit")
                 .status(Transaction.TransactionStatus.COMPLETED)
-                .type(Transaction.TransactionType.DEPOSIT)
+                .type(Transaction.TransactionType.ATM_DEPOSIT)
                 .createdAt(lastWeek.plusDays(2))
                 .completedAt(lastWeek.plusDays(2).plusMinutes(5))
                 .build();
@@ -224,7 +251,7 @@ public class DataLoader implements CommandLineRunner {
                 .currency(Currency.EUR)
                 .description("ATM Withdrawal")
                 .status(Transaction.TransactionStatus.COMPLETED)
-                .type(Transaction.TransactionType.WITHDRAWAL)
+                .type(Transaction.TransactionType.ATM_WITHDRAWAL)
                 .createdAt(yesterday.minusDays(1))
                 .completedAt(yesterday.minusDays(1).plusSeconds(30))
                 .build();
