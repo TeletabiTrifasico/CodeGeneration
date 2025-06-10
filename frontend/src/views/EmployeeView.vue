@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUserStore } from '@/stores/user.store';
 import UserItem from '../components/EmployeeUserItem.vue';
@@ -74,6 +75,18 @@ onMounted(async () => {
   }
   isLoading.value = false;
 });
+
+const route = useRoute();
+
+watch(
+  () => route.fullPath,
+  (newPath) => {
+    // If we're returning to the employee panel with a refresh parameter
+    if (newPath.includes('/employeePanel') && newPath.includes('refresh=')) {
+      refreshData();
+    }
+  }
+);
 </script>
 
 <template>
