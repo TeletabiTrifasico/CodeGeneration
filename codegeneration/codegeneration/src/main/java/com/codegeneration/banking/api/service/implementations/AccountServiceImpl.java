@@ -9,6 +9,7 @@ import com.codegeneration.banking.api.repository.AccountRepository;
 import com.codegeneration.banking.api.repository.UserRepository;
 import com.codegeneration.banking.api.service.interfaces.AccountService;
 import com.codegeneration.banking.api.dto.account.CreateAccountRequest;
+import com.codegeneration.banking.api.dto.LimitUpdateRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
@@ -164,5 +166,22 @@ public class AccountServiceImpl implements AccountService {
         } while (accountRepository.findByAccountNumber(accountNumber).isPresent());
         
         return accountNumber;
+    }
+    @Override
+    @jakarta.transaction.Transactional
+    public Account editLimits(LimitUpdateRequest limitUpdateRequest) {
+        try {
+            String accountNumber = limitUpdateRequest.getAccountNumber();
+            Account account = getAccountByNumber(accountNumber);
+            //Could be moved to account entity possibly to look cleaner
+            account.setDailyTransferLimit(BigDecimal.valueOf(limitUpdateRequest.getDailyTransferLimit()));
+            account.setSingleTransferLimit(BigDecimal.valueOf(limitUpdateRequest.getSingleTransferLimit()));
+            account.setDailyWithdrawalLimit(BigDecimal.valueOf(limitUpdateRequest.getDailyWithdrawalLimit()));
+            account.setSingleWithdrawalLimit(BigDecimal.valueOf(limitUpdateRequest.getSingleWithdrawalLimit()));
+            accountRepository.save(account);
+            return account;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }

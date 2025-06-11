@@ -34,6 +34,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.sql.Array;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -275,22 +276,21 @@ public class AccountController extends BaseController {
     @Operation(summary = "Edit limits for an account", description = "Edits the different limit fields for an account")
     @PutMapping("/limits")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<String>> updateAccountLimits(@Valid @RequestBody LimitUpdateRequest request) {
+    public ResponseEntity<AccountResponse> updateAccountLimits(@Valid @RequestBody LimitUpdateRequest request) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication.getAuthorities().stream().anyMatch(auth -> "ROLE_EMPLOYEE".equals(auth.getAuthority()))) {
-            String accountNumber = request.getAccountNumber();
-            Account account = accountService.getAccountByNumber(accountNumber);
-            //Could be moved to account entity possibly to look cleaner
-            account.setDailyTransferLimit(BigDecimal.valueOf(request.getDailyTransferLimit()));
-            account.setSingleTransferLimit(BigDecimal.valueOf(request.getSingleTransferLimit()));
-            account.setDailyWithdrawalLimit(BigDecimal.valueOf(request.getDailyWithdrawalLimit()));
-            account.setSingleWithdrawalLimit(BigDecimal.valueOf(request.getSingleWithdrawalLimit()));
-            accountRepository.save(account);
-            List<String> response = new ArrayList<>();
-            response.add("Successfully edited limits for account: " + accountNumber);
-            log.info(response.toString());
-            return ResponseEntity.ok(response);
+            try {
+                List<AccountDTO> accountDTOs = List.of(accountService.editLimits(request)).stream()
+                        .map(AccountDTO::fromEntity)
+                        .collect(Collectors.toList());
+
+                AccountResponse response = new AccountResponse(accountDTOs);
+                return ResponseEntity.ok(response);
+            } catch (Exception e) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            }
+            
         }
         else {
             //not an employee

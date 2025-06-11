@@ -7,6 +7,9 @@ import com.codegeneration.banking.api.dto.account.CreateAccountRequest;
 import java.math.BigDecimal;
 import java.util.List;
 
+import com.codegeneration.banking.api.dto.LimitUpdateRequest;
+import com.codegeneration.banking.api.dto.account.AccountResponse;
+
 public interface AccountService {
 
     /**
@@ -86,4 +89,12 @@ public interface AccountService {
      * @return The created account
      */
     Account createAccount(CreateAccountRequest createAccountRequest, User user);
+
+    /**
+     * Edit limits for an account
+     * 
+     * @param limitUpdateRequest The update request
+     * @return The updated account
+     */
+    Account editLimits(LimitUpdateRequest limitUpdateRequest);
 }

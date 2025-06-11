@@ -199,7 +199,6 @@ const searchAccounts = async () => {
     searchResults.value = [];
     return;
   }
-
   try {
     isSearching.value = true;
     searchError.value = null;
@@ -530,7 +529,6 @@ onMounted(async () => {
             >
               Cancel
             </button>
-            {{toAccountError}}
             <button
                 type="submit"
                 class="button primary"
