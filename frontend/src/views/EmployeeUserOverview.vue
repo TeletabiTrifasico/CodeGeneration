@@ -350,8 +350,8 @@ onBeforeRouteLeave((to, from, next) => {
     </div>
     <LimitModal v-if="showLimitModal" :selectedAccount="selectedAccount" @close="closeLimitModal" @edit-complete="refreshData"/>
     <TransferModal :show="showTransferModal" :selectedAccount="selectedAccount" :byEmployee="true" @close="closeTransferModal" @transfer-complete="refreshData"/>
-    <CreateAccountModal />
-    <DeleteAccountModal />
+    <CreateAccountModal :isOpen="showCreateAccountModal" :user="user ?? undefined" @close="closeCreateAccountModal" @account-created="() => { closeCreateAccountModal(); refreshData(); }"/>
+    <DeleteAccountModal :show="showDeleteAccountModal" :selectedAccount="selectedAccount" @close="closeDeleteAccountModal" @delete-complete="() => { closeDeleteAccountModal(); refreshData(); }"/>
   </div>
 </template>
 
