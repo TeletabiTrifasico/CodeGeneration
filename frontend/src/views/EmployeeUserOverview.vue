@@ -63,6 +63,19 @@ const openTransferModal = () => {
 const closeTransferModal = () => {
   showTransferModal.value = false;
 }
+const openAccountModal = () => {
+  showCreateAccountModal.value = true;
+}
+const closeAccountModal = () => {
+  showCreateAccountModal.value = false;
+}
+const openAccountModal = () => {
+  showCreateAccountModal.value = true;
+}
+const closeAccountModal = () => {
+  showCreateAccountModal.value = false;
+}
+
 
 const handleLogout = () => {
   authStore.logout();
@@ -253,12 +266,9 @@ onBeforeRouteLeave((to, from, next) => {
               <button @click="openDeleteAccountModal" class="action-button" style="background-color:#d32f2f;">
                 <span class="action-icon">🗑️</span> Close Account
               </button>
+              <button class="action-button" @click="openTransferModal"><span class="action-icon">↗</span>Transfer</button>
           </div>
           
-          <div class="transfer-panel">
-            <h3>Transfer</h3>
-            <button class="action-button" @click="openTransferModal">Transfer</button>
-          </div>
           <div class="limits-panel">
             <h3>Account Limits</h3>
             <div v-if="selectedAccount != null" class="limits-container">
@@ -340,6 +350,8 @@ onBeforeRouteLeave((to, from, next) => {
     </div>
     <LimitModal v-if="showLimitModal" :selectedAccount="selectedAccount" @close="closeLimitModal" @edit-complete="refreshData"/>
     <TransferModal :show="showTransferModal" :selectedAccount="selectedAccount" :byEmployee="true" @close="closeTransferModal" @transfer-complete="refreshData"/>
+    <CreateAccountModal />
+    <DeleteAccountModal />
   </div>
 </template>
 
