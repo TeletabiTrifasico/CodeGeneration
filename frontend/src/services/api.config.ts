@@ -6,8 +6,8 @@
 import axios from 'axios';
 import { useAuthStore } from '@/stores/auth.store';
 
-// Base API configuration
-export const API_BASE_URL = '/api';
+// Base API configuration - use environment-specific URL
+export const API_BASE_URL = __API_BASE_URL__;
 
 // Create a reusable axios instance with common configuration
 export const apiClient = axios.create({
@@ -100,10 +100,10 @@ export const API_ENDPOINTS = {
         disabled: (pageNumber: number, limit: number) => `/users/disabled?page=${pageNumber}&limit=${limit}`,
         enable: (userId: number) => `/users/${userId}/enable`,
     },
-    
+
     // ATM endpoints
     atm: {
-        deposit: '/atm/deposit', // POST 
+        deposit: '/atm/deposit', // POST
         withdraw: '/atm/withdraw' // POST
     },
 };
@@ -117,9 +117,28 @@ apiClient.interceptors.request.use(
             config.headers['Authorization'] = `Bearer ${authStore.authToken}`;
         }
 
+        console.log(`🔗 API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
+
         return config;
     },
     (error) => {
+        return Promise.reject(error);
+    }
+);
+
+// Add response interceptor for better error handling
+apiClient.interceptors.response.use(
+    (response) => {
+        return response;
+    },
+    (error) => {
+        console.error('API Error:', {
+            url: error.config?.url,
+            method: error.config?.method,
+            status: error.response?.status,
+            data: error.response?.data
+        });
+
         return Promise.reject(error);
     }
 );
