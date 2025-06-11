@@ -74,7 +74,8 @@ export const API_ENDPOINTS = {
         logout: '/auth/logout',
         validate: '/auth/validate',
         register: '/auth/register'
-    },    account: {
+    },    
+    account: {
         getAll: '/account/getall',
         details: (accountNumber: string) => `/account/details/${accountNumber}`,
         search: '/account/search',

@@ -7,6 +7,7 @@ import UserItem from '../components/EmployeeUserItem.vue';
 import { Account, Transaction, User } from '@/models';
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
 import LimitModal from '../components/modals/LimitModal.vue'
+import TransferModal from '../components/modals/TransferModal.vue'
 import { useAccountStore } from '@/stores';
 
 
@@ -41,17 +42,22 @@ const route = useRoute();
 const router = useRouter();
 const userId = route.params.id;
 const showLimitModal = ref(false);
+const showTransferModal = ref(false);
 let selectedAccount: Account;
 let user: User | null = null;
 
 const openLimitModal = () => {
   showLimitModal.value = true;
-  console.log("opening");
-  console.log(showLimitModal);
 }
 const closeLimitModal = () => {
   showLimitModal.value = false;
-  console.log("closing");
+  refreshData();
+}
+const openTransferModal = () => {
+  showTransferModal.value = true;
+}
+const closeTransferModal = () => {
+  showTransferModal.value = false;
 }
 
 const handleLogout = () => {
@@ -236,6 +242,10 @@ onBeforeRouteLeave((to, from, next) => {
               </li>
             </ul>
           </div>
+          <div class="transfer-panel">
+            <h3>Transfer</h3>
+            <button class="action-button" @click="openTransferModal">Transfer</button>
+          </div>
           <div class="limits-panel">
             <h3>Account Limits</h3>
             <div v-if="selectedAccount != null" class="limits-container">
@@ -315,7 +325,8 @@ onBeforeRouteLeave((to, from, next) => {
         </div>
       </div>
     </div>
-    <LimitModal :show="showLimitModal" :selectedAccount="selectedAccount" @close="closeLimitModal" @edit-complete="refreshData"/>
+    <LimitModal v-if="showLimitModal" :selectedAccount="selectedAccount" @close="closeLimitModal" @edit-complete="refreshData"/>
+    <TransferModal :show="showTransferModal" :selectedAccount="selectedAccount" :byEmployee="true" @close="closeTransferModal" @transfer-complete="refreshData"/>
   </div>
 </template>
 
@@ -629,7 +640,7 @@ onBeforeRouteLeave((to, from, next) => {
   display: flex;
   gap: 15px;
 }
-.limits-panel {
+.limits-panel, .transfer-panel {
   background-color: white;
   border-radius: 12px;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
@@ -638,7 +649,7 @@ onBeforeRouteLeave((to, from, next) => {
   transition: all 0.3s ease;
 }
 
-.limits-panel h3 {
+.limits-panel h3, .transfer-panel h3 {
   font-size: 1.2rem;
   color: #555;
   margin-top: 0;

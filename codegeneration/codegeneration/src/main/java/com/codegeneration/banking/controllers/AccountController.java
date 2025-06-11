@@ -113,8 +113,14 @@ public class AccountController extends BaseController {
         String username = authentication.getName();
         log.info("Processing GET /account/details/{} for user: {}", accountNumber, username);
 
+        Account account = null;
         // First try to get account if it belongs to the user
-        Account account = accountService.getAccountByNumberAndUsername(accountNumber, username);
+        try {
+            account = accountService.getAccountByNumberAndUsername(accountNumber, username);
+        }
+        catch (Exception e) {
+            log.error("Target account not owned by user");
+        }
 
         // If not found, try to get account details without ownership check (for transfers)
         if (account == null) {
