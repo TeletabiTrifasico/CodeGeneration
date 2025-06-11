@@ -2,10 +2,7 @@ package com.codegeneration.banking.controllers;
 
 import com.codegeneration.banking.api.dto.UsernameRequest;
 import com.codegeneration.banking.api.dto.LimitUpdateRequest;
-import com.codegeneration.banking.api.dto.account.AccountDTO;
-import com.codegeneration.banking.api.dto.account.AccountResponse;
-import com.codegeneration.banking.api.dto.account.CreateAccountRequest;
-import com.codegeneration.banking.api.dto.account.CreateAccountResponse;
+import com.codegeneration.banking.api.dto.account.*;
 import com.codegeneration.banking.api.dto.transaction.TransactionRequest;
 import com.codegeneration.banking.api.entity.Account;
 import com.codegeneration.banking.api.entity.User;
@@ -34,6 +31,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.sql.Array;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -113,8 +111,14 @@ public class AccountController extends BaseController {
         String username = authentication.getName();
         log.info("Processing GET /account/details/{} for user: {}", accountNumber, username);
 
+        Account account = null;
         // First try to get account if it belongs to the user
-        Account account = accountService.getAccountByNumberAndUsername(accountNumber, username);
+        try {
+            account = accountService.getAccountByNumberAndUsername(accountNumber, username);
+        }
+        catch (Exception e) {
+            log.error("Target account not owned by user");
+        }
 
         // If not found, try to get account details without ownership check (for transfers)
         if (account == null) {
@@ -231,14 +235,26 @@ public class AccountController extends BaseController {
             String username = authentication.getName();
             log.info("Processing POST /account/create for user: {}", username);
 
-            // Find the user
-            Optional<User> userOptional = userRepository.findByUsername(username);
-            if (userOptional.isEmpty()) {
-                log.error("User not found: {}", username);
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            User user = null;
+            Integer userId = null;
+            Optional<User> userOptional;
+            if (request.getUserId() != null) {
+                userId = request.getUserId();  // use provided user object
+                userOptional = userRepository.findById(userId.longValue());
+                if (userOptional.isEmpty()) {
+                    log.error("User not found: {}", userId.longValue());
+                    return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+                }
+                user = userOptional.get();
+            } else {
+                // fallback to authenticated user
+                userOptional = userRepository.findByUsername(authentication.getName());
+                if (userOptional.isEmpty()) {
+                    log.error("User not found: {}", authentication.getName());
+                    return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+                }
+                user = userOptional.get();
             }
-
-            User user = userOptional.get();
 
             // Create the account
             Account createdAccount = accountService.createAccount(request, user);
@@ -266,25 +282,69 @@ public class AccountController extends BaseController {
         }
     }
 
+    @Operation(summary = "Disable an account", description = "Marks an account as disabled by account number for the authenticated user")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Account disabled successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid account number"),
+            @ApiResponse(responseCode = "401", description = "Not authenticated"),
+            @ApiResponse(responseCode = "404", description = "Account not found"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    @PutMapping("/disable/{accountNumber}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> disableAccount(@PathVariable String accountNumber) {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+            if (authentication == null || !authentication.isAuthenticated()) {
+                log.warn("No authentication found for PUT /account/disable/{}", accountNumber);
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            String username = authentication.getName();
+            log.info("Processing PUT /account/disable/{} for user: {}", accountNumber, username);
+
+            Optional<User> userOptional = userRepository.findByUsername(username);
+            if (userOptional.isEmpty()) {
+                log.error("User not found: {}", username);
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            Account disabledAccount = accountService.setAccountAsDisabled(accountNumber);
+            if (disabledAccount == null) {
+                log.warn("Account not found or cannot be disabled: {}", accountNumber);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
+
+            log.info("Account disabled successfully: {}", accountNumber);
+            return ResponseEntity.ok().build();
+
+        } catch (Exception e) {
+            log.error("Error disabling account {} for user", accountNumber, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+
+
     @Operation(summary = "Edit limits for an account", description = "Edits the different limit fields for an account")
     @PutMapping("/limits")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<String>> updateAccountLimits(@Valid @RequestBody LimitUpdateRequest request) {
+    public ResponseEntity<AccountResponse> updateAccountLimits(@Valid @RequestBody LimitUpdateRequest request) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication.getAuthorities().stream().anyMatch(auth -> "ROLE_EMPLOYEE".equals(auth.getAuthority()))) {
-            String accountNumber = request.getAccountNumber();
-            Account account = accountService.getAccountByNumber(accountNumber);
-            //Could be moved to account entity possibly to look cleaner
-            account.setDailyTransferLimit(BigDecimal.valueOf(request.getDailyTransferLimit()));
-            account.setSingleTransferLimit(BigDecimal.valueOf(request.getSingleTransferLimit()));
-            account.setDailyWithdrawalLimit(BigDecimal.valueOf(request.getDailyWithdrawalLimit()));
-            account.setSingleWithdrawalLimit(BigDecimal.valueOf(request.getSingleWithdrawalLimit()));
-            accountRepository.save(account);
-            List<String> response = new ArrayList<>();
-            response.add("Successfully edited limits for account: " + accountNumber);
-            log.info(response.toString());
-            return ResponseEntity.ok(response);
+            try {
+                List<AccountDTO> accountDTOs = List.of(accountService.editLimits(request)).stream()
+                        .map(AccountDTO::fromEntity)
+                        .collect(Collectors.toList());
+
+                AccountResponse response = new AccountResponse(accountDTOs);
+                return ResponseEntity.ok(response);
+            } catch (Exception e) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            }
+            
         }
         else {
             //not an employee

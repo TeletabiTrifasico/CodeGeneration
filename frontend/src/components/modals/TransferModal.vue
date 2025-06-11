@@ -8,6 +8,7 @@ import { apiClient, API_ENDPOINTS, getAuthHeader, TransferPreview, CurrencyExcha
 const props = defineProps<{
   show: boolean;
   selectedAccount?: Account | null;
+  byEmployee?: boolean | null;
 }>();
 
 const emit = defineEmits(['close', 'transfer-complete']);
@@ -48,7 +49,7 @@ const isFormValid = computed(() => {
       !!amount.value &&
       amount.value > 0 &&
       !amountError.value &&
-      !toAccountError.value;
+      (!toAccountError.value || toAccountError.value[0] == '✓'); 
 });
 
 const insufficientFunds = computed(() => {
@@ -198,7 +199,6 @@ const searchAccounts = async () => {
     searchResults.value = [];
     return;
   }
-
   try {
     isSearching.value = true;
     searchError.value = null;
@@ -233,14 +233,18 @@ const validateToAccount = async () => {
   // Check if account exists and provide helpful info
   try {
     const response = await apiClient.get(
-        `${API_ENDPOINTS.account.details}/${toAccount.value}`,
+        `${API_ENDPOINTS.account.details(toAccount.value)}`,
         { headers: getAuthHeader() }
     );
 
     // Account exists and is user's own account (but different from source)
     if (isOwnAccountTransfer.value) {
       const targetAccount = availableFromAccounts.value.find(acc => acc.accountNumber === toAccount.value);
-      if (targetAccount) {
+      if (props.byEmployee) {
+        //If an employee is transfering to themselves from the employee panel
+        toAccountError.value = `Can't transfer to your own account`;
+      }
+      else if (targetAccount) {
         toAccountError.value = `✓ Transfer to your ${targetAccount.accountName} (${targetAccount.currency})`;
       }
     }
@@ -360,11 +364,16 @@ onMounted(async () => {
                 :disabled="isProcessing"
                 class="form-control"
             >
-              <option v-for="account in availableFromAccounts"
+              <option v-if="!props.byEmployee" v-for="account in availableFromAccounts"
                       :key="account.id"
                       :value="account">
                 {{ account.accountName }} ({{ account.accountNumber }}) -
                 {{ formatCurrency(account.balance, account.currency) }}
+              </option>
+              <!-- Exception for transfering from employee panel-->
+              <option v-else :key="fromAccount.id" :value="fromAccount">
+                {{ fromAccount.accountName }} ({{ fromAccount.accountNumber }}) -
+                {{ formatCurrency(fromAccount.balance, fromAccount.currency) }}
               </option>
             </select>
             <div class="form-info" v-if="fromAccount">

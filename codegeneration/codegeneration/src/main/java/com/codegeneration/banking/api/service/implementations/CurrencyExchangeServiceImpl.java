@@ -18,31 +18,31 @@ public class CurrencyExchangeServiceImpl implements CurrencyExchangeService {
     private static final Map<String, BigDecimal> EXCHANGE_RATES = new HashMap<>();
 
     static {
-        // EUR to other currencies
+        // EUR to other currencies (Euro)
         EXCHANGE_RATES.put("EUR_USD", new BigDecimal("1.08"));
         EXCHANGE_RATES.put("EUR_GBP", new BigDecimal("0.86"));
         EXCHANGE_RATES.put("EUR_CHF", new BigDecimal("0.95"));
         EXCHANGE_RATES.put("EUR_PLN", new BigDecimal("4.23"));
 
-        // USD to other currencies
+        // USD to other currencies (American Dollar)
         EXCHANGE_RATES.put("USD_EUR", new BigDecimal("0.93"));
         EXCHANGE_RATES.put("USD_GBP", new BigDecimal("0.80"));
         EXCHANGE_RATES.put("USD_CHF", new BigDecimal("0.88"));
         EXCHANGE_RATES.put("USD_PLN", new BigDecimal("3.92"));
 
-        // GBP to other currencies
+        // GBP to other currencies (British Pound)
         EXCHANGE_RATES.put("GBP_EUR", new BigDecimal("1.16"));
         EXCHANGE_RATES.put("GBP_USD", new BigDecimal("1.25"));
         EXCHANGE_RATES.put("GBP_CHF", new BigDecimal("1.10"));
         EXCHANGE_RATES.put("GBP_PLN", new BigDecimal("4.91"));
 
-        // CHF to other currencies
+        // CHF to other currencies (Swiss Franc)
         EXCHANGE_RATES.put("CHF_EUR", new BigDecimal("1.05"));
         EXCHANGE_RATES.put("CHF_USD", new BigDecimal("1.14"));
         EXCHANGE_RATES.put("CHF_GBP", new BigDecimal("0.91"));
         EXCHANGE_RATES.put("CHF_PLN", new BigDecimal("4.45"));
 
-        // PLN to other currencies
+        // PLN to other currencies (Polish Zloty)
         EXCHANGE_RATES.put("PLN_EUR", new BigDecimal("0.24"));
         EXCHANGE_RATES.put("PLN_USD", new BigDecimal("0.26"));
         EXCHANGE_RATES.put("PLN_GBP", new BigDecimal("0.20"));

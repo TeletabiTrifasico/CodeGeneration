@@ -108,6 +108,7 @@ public class DataLoader implements CommandLineRunner {
         log.info("Loading sample accounts...");
 
         // Get users
+        User employee = userRepository.findByUsername("employee").orElseThrow();
         User user1 = userRepository.findByUsername("user1").orElseThrow();
         User user2 = userRepository.findByUsername("user2").orElseThrow();
 
@@ -168,9 +169,46 @@ public class DataLoader implements CommandLineRunner {
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
+        
+        // Create accounts for employee (EUR and USD)
+        Account employeeEurAccount = Account.builder()
+                .accountNumber("NL99BANK000111222")
+                .accountName("Employee Euro Account")
+                .accountType("CHECKING")
+                .balance(new BigDecimal("8000.00"))
+                .currency(Currency.EUR)
+                .dailyTransferLimit(new BigDecimal("3000.00"))
+                .dailyWithdrawalLimit(new BigDecimal("2500.00"))
+                .singleTransferLimit(new BigDecimal("7000.00"))
+                .singleWithdrawalLimit(new BigDecimal("1500.00"))
+                .transferUsedToday(BigDecimal.ZERO)
+                .withdrawalUsedToday(BigDecimal.ZERO)
+                .lastLimitResetDate(now)
+                .user(employee)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+
+        Account employeeUsdAccount = Account.builder()
+                .accountNumber("NL99BANK000333444")
+                .accountName("Employee USD Account")
+                .accountType("SAVINGS")
+                .balance(new BigDecimal("6000.00"))
+                .currency(Currency.USD)
+                .dailyTransferLimit(new BigDecimal("5000.00"))
+                .dailyWithdrawalLimit(new BigDecimal("2000.00"))
+                .singleTransferLimit(new BigDecimal("4000.00"))
+                .singleWithdrawalLimit(new BigDecimal("1000.00"))
+                .transferUsedToday(BigDecimal.ZERO)
+                .withdrawalUsedToday(BigDecimal.ZERO)
+                .lastLimitResetDate(now)
+                .user(employee)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
 
         // Save accounts
-        accountRepository.saveAll(Arrays.asList(user1EurAccount, user1PlnAccount, user2EurAccount));
+        accountRepository.saveAll(Arrays.asList(employeeEurAccount, employeeUsdAccount, user1EurAccount, user1PlnAccount, user2EurAccount));
 
         log.info("Sample accounts loaded successfully");
     }

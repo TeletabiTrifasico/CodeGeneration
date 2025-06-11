@@ -1,5 +1,6 @@
 package com.codegeneration.banking.api.dto.account;
 
+import com.codegeneration.banking.api.entity.User;
 import com.codegeneration.banking.api.enums.Currency;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
@@ -32,4 +33,7 @@ public class CreateAccountRequest {
     @NotNull(message = "Currency is required")
     @Schema(description = "Currency for the account", example = "EUR")
     private Currency currency;
+
+    @Schema(description = "Optional user ID to assign the account to")
+    private Integer userId;  // optional, can be null
 }

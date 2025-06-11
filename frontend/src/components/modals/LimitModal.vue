@@ -6,56 +6,61 @@ import { Account } from '@/models';
 import { apiClient, API_ENDPOINTS, getAuthHeader, TransferPreview, CurrencyExchange } from '@/services/api.config';
 
 const props = defineProps<{
-  show: boolean;
-  selectedAccount?: Account;
+  selectedAccount: Account;
 }>();
 let formValues = {
-    accountNumber: "",
-    dailyTransferLimit: 0,
-    singleTransferLimit: 0,
-    dailyWithdrawalLimit: 0,
-    singleWithdrawalLimit: 0
+    accountNumber: ref(""),
+    dailyTransferLimit: ref(0),
+    singleTransferLimit: ref(0),
+    dailyWithdrawalLimit: ref(0),
+    singleWithdrawalLimit: ref(0)
 }
 let isProcessing = false;
 const emit = defineEmits(['close', 'edit-complete']);
 const closeModal = () => {
     if(!isProcessing) {
-        resetForm();
         emit('close');
     }
 };
-const resetForm  = () => {
-    formValues = {
-        accountNumber: "",
-        dailyTransferLimit: 0,
-        singleTransferLimit: 0,
-        dailyWithdrawalLimit: 0,
-        singleWithdrawalLimit: 0
-    }
-};
+onMounted(() => {
+  console.log("mounted");
+  console.log(props.selectedAccount);
+  formValues.accountNumber.value = props.selectedAccount.accountNumber;
+  formValues.dailyTransferLimit.value = props.selectedAccount.dailyTransferLimit;
+  formValues.dailyWithdrawalLimit.value = props.selectedAccount.dailyWithdrawalLimit;
+  formValues.singleTransferLimit.value = props.selectedAccount.singleTransferLimit;
+  formValues.singleWithdrawalLimit.value = props.selectedAccount.singleWithdrawalLimit;
+  console.log(props.selectedAccount.singleTransferLimit);
+  console.log(formValues.singleTransferLimit);
+})
 const submitForm = () => {
     isProcessing = true;
     let accountStore = useAccountStore();
-    accountStore.editLimits(formValues);
-    resetForm();
+    let values = {
+      accountNumber: formValues.accountNumber.value,
+      dailyTransferLimit: formValues.dailyTransferLimit.value,
+      singleTransferLimit: formValues.singleTransferLimit.value,
+      dailyWithdrawalLimit: formValues.dailyWithdrawalLimit.value,
+      singleWithdrawalLimit: formValues.singleWithdrawalLimit.value
+    }
+    accountStore.editLimits(values);
     emit('edit-complete');
     isProcessing = false;
     closeModal();
 };
 
-watch(() => props.show, (newVal, oldVal) => {
-  if (newVal = true) { //Watch for show to become true
-    formValues.accountNumber = props.selectedAccount.accountNumber;
-    formValues.dailyTransferLimit = props.selectedAccount.dailyTransferLimit;
-    formValues.dailyWithdrawalLimit = props.selectedAccount.dailyWithdrawalLimit;
-    formValues.singleTransferLimit = props.selectedAccount.singleTransferLimit;
-    formValues.singleWithdrawalLimit = props.selectedAccount.singleWithdrawalLimit;
-  }
-});
+// watch(() => props.selectedAccount, (newVal, oldVal) => {
+//   console.log(newVal);
+//   formValues.accountNumber = props.selectedAccount.accountNumber;
+//   formValues.dailyTransferLimit = props.selectedAccount.dailyTransferLimit;
+//   formValues.dailyWithdrawalLimit = props.selectedAccount.dailyWithdrawalLimit;
+//   formValues.singleTransferLimit = props.selectedAccount.singleTransferLimit;
+//   formValues.singleWithdrawalLimit = props.selectedAccount.singleWithdrawalLimit;
+// });
 
 </script>
 <template>
-    <div v-if="show" class="modal-overlay" @click="closeModal">
+    <div class="modal-overlay" @click="closeModal">
         <div class="modal-container" @click.stop>
             <div class="modal-header">
                 <h2>Edit account limits</h2> <!-- Only the text is specific -->
@@ -69,7 +74,7 @@ watch(() => props.show, (newVal, oldVal) => {
                     <label :for="'dailyTransfer'">Daily transfer limit</label>
                     <input
                         :id="'dailyTransfer'"
-                        v-model="formValues.dailyTransferLimit"
+                        v-model="formValues.dailyTransferLimit.value"
                         type="number"
                         min="0"
                         :step="1"
@@ -80,7 +85,7 @@ watch(() => props.show, (newVal, oldVal) => {
                     <label :for="'dailyWithdrawal'">Daily withdrawal limit</label>
                     <input
                         :id="'dailyWithdrawal'"
-                        v-model="formValues.dailyWithdrawalLimit"
+                        v-model="formValues.dailyWithdrawalLimit.value"
                         type="number"
                         min="0"
                         :step="1"
@@ -91,7 +96,7 @@ watch(() => props.show, (newVal, oldVal) => {
                     <label :for="'singleTransfer'">Single transfer limit</label>
                     <input
                         :id="'singleTransfer'"
-                        v-model="formValues.singleTransferLimit"
+                        v-model="formValues.singleTransferLimit.value"
                         type="number"
                         min="0"
                         :step="1"
@@ -102,7 +107,7 @@ watch(() => props.show, (newVal, oldVal) => {
                     <label :for="'singleWithdrawal'">Single withdrawal limit</label>
                     <input
                         :id="'singleWithdrawal'"
-                        v-model="formValues.singleWithdrawalLimit"
+                        v-model="formValues.singleWithdrawalLimit.value"
                         type="number"
                         min="0"
                         :step="1"

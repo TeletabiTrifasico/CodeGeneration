@@ -282,10 +282,17 @@ public class TransactionController extends BaseController {
         if (transferRequest.getFromAccount().equals(transferRequest.getToAccount())) {
             throw new IllegalArgumentException("Cannot transfer to the same account");
         }
-
+        Account sourceAccount = null;
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if(authentication.getAuthorities().stream().anyMatch(auth -> "ROLE_EMPLOYEE".equals(auth.getAuthority()))) {
+            sourceAccount = accountService.getAccountByNumber(
+                    transferRequest.getFromAccount());
+        }
+        else {
+            sourceAccount = accountService.getAccountByNumberAndUsername(
+                    transferRequest.getFromAccount(), username);
+        }
         // Validate source account belongs to the authenticated user
-        Account sourceAccount = accountService.getAccountByNumberAndUsername(
-                transferRequest.getFromAccount(), username);
 
         if (sourceAccount == null) {
             throw new ResourceNotFoundException("Source account not found or does not belong to you: "
