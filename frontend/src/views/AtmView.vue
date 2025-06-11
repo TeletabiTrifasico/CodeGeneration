@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useAccountStore } from '@/stores/account.store';
 import { useAtmStore } from '@/stores/atm.store';
 import { useAuthStore } from '@/stores/auth.store';
 import { useTransactionStore } from '@/stores/transaction.store';
+import { currencyService } from '@/services/CurrencyService';
 import { Account } from '@/models';
 
 // Get stores
@@ -20,21 +21,55 @@ const description = ref<string>('');
 const isSubmitting = ref<boolean>(false);
 const isSuccess = ref<boolean>(false);
 const successMessage = ref<string>('');
+const accountLimits = ref<any>(null);
+const isLoadingLimits = ref<boolean>(false);
 const accounts = computed(() => accountStore.allAccounts);
 const loading = computed(() => accountStore.isLoading || atmStore.isProcessing);
 const error = computed(() => atmStore.error);
 
-// Calculate minimum and maximum values for amount
-const minAmount = computed(() => 1); // Minimum transaction amount
+// Calculate minimum and maximum values for amount using account's native currency limits
+const minAmount = computed(() => 1);
 const maxAmount = computed(() => {
+  if (!selectedAccount.value || !accountLimits.value) return 0;
+  
   if (transactionType.value === 'deposit') {
-    return 10000; // Maximum deposit amount
-  } else if (selectedAccount.value) {
-    // For withdrawals, can't withdraw more than account balance
-    return selectedAccount.value.balance;
+    // For deposits, use transfer limits from converted account limits
+    const remainingDaily = accountLimits.value.dailyTransferLimit - selectedAccount.value.transferUsedToday;
+    return Math.min(accountLimits.value.singleTransferLimit, Math.max(0, remainingDaily));
+  } else {
+    // For withdrawals, consider balance and withdrawal limits from converted account limits
+    const remainingDaily = accountLimits.value.dailyWithdrawalLimit - selectedAccount.value.withdrawalUsedToday;
+    return Math.min(
+      selectedAccount.value.balance,
+      accountLimits.value.singleWithdrawalLimit,
+      Math.max(0, remainingDaily)
+    );
   }
-  return 0;
 });
+
+// Load account limits in account currency (from EUR defaults)
+const loadAccountLimits = async () => {
+  if (!selectedAccount.value) {
+    accountLimits.value = null;
+    return;
+  }
+
+  try {
+    isLoadingLimits.value = true;
+    accountLimits.value = await currencyService.convertLimitsToAccountCurrency(selectedAccount.value.currency);
+  } catch (error) {
+    console.error('Error loading account limits:', error);
+    // Fallback to default EUR limits if conversion fails
+    accountLimits.value = {
+      singleTransferLimit: 3000,
+      dailyTransferLimit: 5000,
+      singleWithdrawalLimit: 500,
+      dailyWithdrawalLimit: 5000
+    };
+  } finally {
+    isLoadingLimits.value = false;
+  }
+};
 
 // Format currency
 const formatCurrency = (amount: number, currency = 'EUR'): string => {
@@ -46,9 +81,22 @@ const formatCurrency = (amount: number, currency = 'EUR'): string => {
 
 // Check if form is valid
 const isFormValid = computed(() => {
-  return selectedAccount.value !== null && 
-    amount.value > 0 && 
-    amount.value <= maxAmount.value;
+  if (!selectedAccount.value || !accountLimits.value || amount.value <= 0) return false;
+  
+  if (transactionType.value === 'deposit') {
+    // Check deposit limits (using converted transfer limits)
+    const remainingDaily = accountLimits.value.dailyTransferLimit - selectedAccount.value.transferUsedToday;
+    return amount.value <= accountLimits.value.singleTransferLimit && 
+           amount.value <= remainingDaily &&
+           amount.value <= maxAmount.value;
+  } else {
+    // Check withdrawal limits and balance (using converted withdrawal limits)
+    const remainingDaily = accountLimits.value.dailyWithdrawalLimit - selectedAccount.value.withdrawalUsedToday;
+    return amount.value <= selectedAccount.value.balance &&
+           amount.value <= accountLimits.value.singleWithdrawalLimit &&
+           amount.value <= remainingDaily &&
+           amount.value <= maxAmount.value;
+  }
 });
 
 // Handle account selection
@@ -56,15 +104,50 @@ const handleAccountSelect = (account: Account) => {
   selectedAccount.value = account;
 };
 
+// Watch for account changes and reset success/error states
+watch(selectedAccount, async () => {
+  isSuccess.value = false;
+  successMessage.value = '';
+  atmStore.clearError();
+  amount.value = 0;
+  description.value = '';
+  await loadAccountLimits(); // Load limits for the new account
+});
+
 // Handle transaction type change
 const handleTypeChange = (type: 'deposit' | 'withdraw') => {
   transactionType.value = type;
   
-  // Reset amount if it exceeds the max for withdrawals
-  if (type === 'withdraw' && selectedAccount.value && amount.value > selectedAccount.value.balance) {
-    amount.value = selectedAccount.value.balance;
+  // Reset amount if it exceeds the max for the new transaction type
+  if (selectedAccount.value && amount.value > maxAmount.value) {
+    amount.value = Math.min(amount.value, maxAmount.value);
   }
 };
+
+// Get limit information for display
+const getLimitInfo = computed(() => {
+  if (!selectedAccount.value || !accountLimits.value) return null;
+  
+  if (transactionType.value === 'deposit') {
+    const remainingDaily = accountLimits.value.dailyTransferLimit - selectedAccount.value.transferUsedToday;
+    return {
+      singleLimit: accountLimits.value.singleTransferLimit,
+      dailyLimit: accountLimits.value.dailyTransferLimit,
+      dailyUsed: selectedAccount.value.transferUsedToday,
+      dailyRemaining: Math.max(0, remainingDaily),
+      limitType: 'transfer'
+    };
+  } else {
+    const remainingDaily = accountLimits.value.dailyWithdrawalLimit - selectedAccount.value.withdrawalUsedToday;
+    return {
+      singleLimit: accountLimits.value.singleWithdrawalLimit,
+      dailyLimit: accountLimits.value.dailyWithdrawalLimit,
+      dailyUsed: selectedAccount.value.withdrawalUsedToday,
+      dailyRemaining: Math.max(0, remainingDaily),
+      limitType: 'withdrawal'
+    };
+  }
+});
 
 // Handle transaction submission
 const handleSubmit = async () => {
@@ -90,11 +173,18 @@ const handleSubmit = async () => {
         amount.value,
         description.value
       );
-    }
-      if (success) {
+    }      if (success) {
       // Update account and transaction data
       await accountStore.fetchAllAccounts();
+      
+      // Update the selected account reference with fresh data to reflect limit changes
       if (selectedAccount.value) {
+        const updatedAccount = accountStore.allAccounts.find(
+          acc => acc.accountNumber === selectedAccount.value!.accountNumber
+        );
+        if (updatedAccount) {
+          selectedAccount.value = updatedAccount;
+        }
         await transactionStore.fetchTransactionsByAccount(selectedAccount.value.accountNumber);
       }
       
@@ -119,10 +209,10 @@ onMounted(async () => {
     // Validate token and fetch accounts
     await authStore.validateToken();
     await accountStore.fetchAllAccounts();
-    
-    // Pre-select first account if any are available
+      // Pre-select first account if any are available
     if (accounts.value.length > 0) {
       selectedAccount.value = accounts.value[0];
+      await loadAccountLimits(); // Load account limits for the selected account
     }
   } catch (err) {
     console.error('Error loading ATM data:', err);
@@ -207,8 +297,30 @@ onMounted(async () => {
             step="0.01"
             required
           />
+        </div>        <!-- Limit Information -->
+        <div v-if="selectedAccount && getLimitInfo" class="limit-info">
+          <h4>{{ transactionType === 'deposit' ? 'Transfer' : 'Withdrawal' }} Limits</h4>
+          <div class="limit-details">
+            <div class="limit-item">
+              <span class="limit-label">Single limit:</span>
+              <span class="limit-value">{{ formatCurrency(getLimitInfo.singleLimit, selectedAccount.currency) }}</span>
+            </div>
+            <div class="limit-item">
+              <span class="limit-label">Daily remaining:</span>
+              <span class="limit-value" :class="{ 'limit-warning': getLimitInfo.dailyRemaining < 100 }">
+                {{ formatCurrency(getLimitInfo.dailyRemaining, selectedAccount.currency) }}
+              </span>
+            </div>
+            <div v-if="transactionType === 'withdraw'" class="limit-item">
+              <span class="limit-label">Available balance:</span>
+              <span class="limit-value">{{ formatCurrency(selectedAccount.balance, selectedAccount.currency) }}</span>
+            </div>
+          </div>
+          <div v-if="maxAmount <= 0" class="limit-warning-message">
+            <p>⚠️ {{ transactionType === 'deposit' ? 'Daily transfer limit reached' : 'Daily withdrawal limit reached or insufficient balance' }}</p>
+          </div>
         </div>
-        
+
         <!-- Description -->
         <div class="form-group">
           <label for="description">Description (Optional)</label>
@@ -472,6 +584,71 @@ input[type="range"] {
 .submit-button:disabled {
   background-color: #a5d6a7;
   cursor: not-allowed;
+}
+
+.limit-info {
+  margin-bottom: 1.5rem;
+  padding: 0.75rem;
+  background-color: #fafbfc;
+  border-radius: 4px;
+  border-left: 3px solid #e9ecef;
+  border: 1px solid #e9ecef;
+}
+
+.limit-info h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.9rem;
+  color: #6c757d;
+  font-weight: 500;
+  border-bottom: none;
+  padding-bottom: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.limit-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.limit-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.15rem 0;
+}
+
+.limit-label {
+  font-size: 0.85rem;
+  color: #6c757d;
+  font-weight: 400;
+}
+
+.limit-value {
+  font-weight: 500;
+  color: #495057;
+  font-size: 0.85rem;
+}
+
+.limit-value.limit-warning {
+  color: #fd7e14;
+  font-weight: 600;
+}
+
+.limit-warning-message {
+  margin-top: 0.75rem;
+  padding: 0.5rem;
+  background-color: #fff8e1;
+  border: 1px solid #ffe0b2;
+  border-radius: 3px;
+  color: #e65100;
+}
+
+.limit-warning-message p {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 500;
 }
 
 .error-message {

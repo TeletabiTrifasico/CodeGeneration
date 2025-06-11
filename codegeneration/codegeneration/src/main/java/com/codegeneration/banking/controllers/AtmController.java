@@ -5,10 +5,12 @@ import com.codegeneration.banking.api.dto.atm.AtmTransactionResponse;
 import com.codegeneration.banking.api.entity.Account;
 import com.codegeneration.banking.api.entity.Transaction;
 import com.codegeneration.banking.api.entity.Transaction.TransactionType;
+import com.codegeneration.banking.api.enums.Currency;
 import com.codegeneration.banking.api.exception.InsufficientFundsException;
 import com.codegeneration.banking.api.exception.ResourceNotFoundException;
 import com.codegeneration.banking.api.service.interfaces.AccountService;
 import com.codegeneration.banking.api.service.interfaces.TransactionService;
+import com.codegeneration.banking.api.service.interfaces.CurrencyExchangeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -37,6 +39,7 @@ public class AtmController extends BaseController {
 
     private final AccountService accountService;
     private final TransactionService transactionService;
+    private final CurrencyExchangeService currencyExchangeService;
 
     @Operation(summary = "Deposit money", description = "Deposit money into an account via ATM")
     @ApiResponses(value = {
@@ -67,7 +70,30 @@ public class AtmController extends BaseController {
             
             // deposit
             double amount = request.getAmount();
-            accountService.increaseBalance(account, BigDecimal.valueOf(amount));
+            BigDecimal depositAmount = BigDecimal.valueOf(amount);            // Check if deposit respects daily transfer limits (deposits use transfer limits)
+            // Convert both amount and limits to EUR for standardized comparison
+            BigDecimal amountInEur = currencyExchangeService.convertAmount(depositAmount, account.getCurrency(), Currency.EUR);
+            BigDecimal singleLimitInEur = currencyExchangeService.convertAmount(account.getSingleTransferLimit(), account.getCurrency(), Currency.EUR);
+            BigDecimal dailyLimitInEur = currencyExchangeService.convertAmount(account.getDailyTransferLimit(), account.getCurrency(), Currency.EUR);
+            BigDecimal transferUsedInEur = currencyExchangeService.convertAmount(account.getTransferUsedToday(), account.getCurrency(), Currency.EUR);
+            
+            // Check single transaction limit in EUR
+            if (amountInEur.compareTo(singleLimitInEur) > 0) {
+                throw new IllegalArgumentException("Deposit amount exceeds single transfer limit of " + 
+                    singleLimitInEur + " EUR equivalent");
+            }
+            
+            // Check daily limit in EUR
+            BigDecimal newTotalInEur = transferUsedInEur.add(amountInEur);
+            if (newTotalInEur.compareTo(dailyLimitInEur) > 0) {
+                throw new IllegalArgumentException("Deposit amount exceeds daily transfer limit of " + 
+                    dailyLimitInEur + " EUR equivalent");
+            }
+            
+            // Process deposit
+            accountService.increaseBalance(account, depositAmount);
+            account.updateTransferUsed(depositAmount); // Update daily transfer usage for deposits
+            accountService.saveAccount(account); // Save the updated account with usage tracking
             
             // Create transaction record
             Transaction transaction = transactionService.createAtmTransaction(
@@ -77,7 +103,7 @@ public class AtmController extends BaseController {
                     request.getDescription()
             );
             
-            // response
+            // Build response
             AtmTransactionResponse response = AtmTransactionResponse.builder()
                     .success(true)
                     .transactionReference(transaction.getTransactionReference())
@@ -86,6 +112,13 @@ public class AtmController extends BaseController {
             
             return ResponseEntity.ok(response);
             
+        } catch (IllegalArgumentException e) {
+            log.warn("Deposit limit violation: {}", e.getMessage());
+            return ResponseEntity.status(400)
+                    .body(AtmTransactionResponse.builder()
+                            .success(false)
+                            .errorMessage(e.getMessage())
+                            .build());
         } catch (ResourceNotFoundException e) {
             log.error("Error processing deposit: {}", e.getMessage());
             return ResponseEntity.status(404)
@@ -130,9 +163,32 @@ public class AtmController extends BaseController {
                 throw new ResourceNotFoundException("Account not found: " + request.getAccountNumber());
             }
             
-            //  withdrawal
+            // Validate withdrawal
             double amount = request.getAmount();
-            accountService.decreaseBalance(account, BigDecimal.valueOf(amount));
+            BigDecimal withdrawalAmount = BigDecimal.valueOf(amount);            // Check if withdrawal respects withdrawal limits
+            // Convert both amount and limits to EUR for standardized comparison
+            BigDecimal amountInEur = currencyExchangeService.convertAmount(withdrawalAmount, account.getCurrency(), Currency.EUR);
+            BigDecimal singleLimitInEur = currencyExchangeService.convertAmount(account.getSingleWithdrawalLimit(), account.getCurrency(), Currency.EUR);
+            BigDecimal dailyLimitInEur = currencyExchangeService.convertAmount(account.getDailyWithdrawalLimit(), account.getCurrency(), Currency.EUR);
+            BigDecimal withdrawalUsedInEur = currencyExchangeService.convertAmount(account.getWithdrawalUsedToday(), account.getCurrency(), Currency.EUR);
+            
+            // Check single transaction limit in EUR
+            if (amountInEur.compareTo(singleLimitInEur) > 0) {
+                throw new IllegalArgumentException("Withdrawal amount exceeds single withdrawal limit of " + 
+                    singleLimitInEur + " EUR equivalent");
+            }
+            
+            // Check daily limit in EUR
+            BigDecimal newTotalInEur = withdrawalUsedInEur.add(amountInEur);
+            if (newTotalInEur.compareTo(dailyLimitInEur) > 0) {
+                throw new IllegalArgumentException("Withdrawal amount exceeds daily withdrawal limit of " + 
+                    dailyLimitInEur + " EUR equivalent");
+            }
+            
+            // Process withdrawal
+            accountService.decreaseBalance(account, withdrawalAmount);
+            account.updateWithdrawalUsed(withdrawalAmount); // Update daily withdrawal usage
+            accountService.saveAccount(account); // Save the updated account with usage tracking
             
             // Create transaction record
             Transaction transaction = transactionService.createAtmTransaction(
@@ -142,7 +198,7 @@ public class AtmController extends BaseController {
                     request.getDescription()
             );
             
-            // response
+            // Build response
             AtmTransactionResponse response = AtmTransactionResponse.builder()
                     .success(true)
                     .transactionReference(transaction.getTransactionReference())
@@ -153,6 +209,13 @@ public class AtmController extends BaseController {
             
         } catch (InsufficientFundsException e) {
             log.warn("Insufficient funds for withdrawal: {}", e.getMessage());
+            return ResponseEntity.status(400)
+                    .body(AtmTransactionResponse.builder()
+                            .success(false)
+                            .errorMessage(e.getMessage())
+                            .build());
+        } catch (IllegalArgumentException e) {
+            log.warn("Withdrawal limit violation: {}", e.getMessage());
             return ResponseEntity.status(400)
                     .body(AtmTransactionResponse.builder()
                             .success(false)

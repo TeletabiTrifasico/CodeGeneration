@@ -1,17 +1,14 @@
-// src/test/java/com/codegeneration/banking/ATM/AtmOperationsTest.java
 package com.codegeneration.banking.ATM;
 
 import com.codegeneration.banking.api.dto.atm.AtmTransactionRequest;
 import com.codegeneration.banking.base.BaseControllerTest;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
@@ -22,60 +19,68 @@ public class AtmOperationsTest extends BaseControllerTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        jwtToken = authenticateAndGetToken();      // get token once
-        setupAccountAndTransactionMocks();         // prepare mocks
+        jwtToken = authenticateAndGetToken();
+        setupAccountAndTransactionMocks();
     }
 
     @Test
-    @DisplayName("Deposit succeeds with valid JWT")
-    void depositMoney_Success() throws Exception {
-        var req = AtmTransactionRequest.builder()
-                    .accountNumber(TEST_ACCOUNT_NUMBER)
-                    .amount(100.0)
-                    .description("Deposit test")
-                    .build();
+    void deposit_Success() throws Exception {
+        var request = AtmTransactionRequest.builder()
+                .accountNumber(TEST_ACCOUNT_NUMBER)
+                .amount(100.0)
+                .description("Test deposit")
+                .build();
 
         mockMvc.perform(post("/api/atm/deposit")
                 .header("Authorization", "Bearer " + jwtToken)
                 .contentType("application/json")
-                .content(objectMapper.writeValueAsString(req)))
-            .andDo(print())
+                .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.success", is(true)))
-            .andExpect(jsonPath("$.transactionReference", is("TRX123456")));
+            .andExpect(jsonPath("$.transactionReference", is("TRX123456")))
+            .andExpect(jsonPath("$.updatedBalance", is(1100.0))); // 1000 + 100
     }
 
     @Test
-    @DisplayName("Withdraw succeeds with valid JWT")
-    void withdrawMoney_Success() throws Exception {
-        var req = AtmTransactionRequest.builder()
-                    .accountNumber(TEST_ACCOUNT_NUMBER)
-                    .amount(50.0)
-                    .description("Withdraw test")
-                    .build();
+    void withdraw_Success() throws Exception {
+        var request = AtmTransactionRequest.builder()
+                .accountNumber(TEST_ACCOUNT_NUMBER)
+                .amount(50.0)
+                .description("Test withdrawal")
+                .build();
 
         mockMvc.perform(post("/api/atm/withdraw")
                 .header("Authorization", "Bearer " + jwtToken)
                 .contentType("application/json")
-                .content(objectMapper.writeValueAsString(req)))
-            .andDo(print())
+                .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.success", is(true)));
+            .andExpect(jsonPath("$.success", is(true)))
+            .andExpect(jsonPath("$.transactionReference", is("TRX123456")))
+            .andExpect(jsonPath("$.updatedBalance", is(950.0))); // 1000 - 50
     }
 
     @Test
-    @DisplayName("Operation fails without JWT")
-    void atmOperation_Unauthorized() throws Exception {
-        var req = AtmTransactionRequest.builder()
-                    .accountNumber(TEST_ACCOUNT_NUMBER)
-                    .amount(100.0)
-                    .description("No JWT")
-                    .build();
+    void deposit_Unauthorized() throws Exception {
+        var request = AtmTransactionRequest.builder()
+                .accountNumber(TEST_ACCOUNT_NUMBER)
+                .amount(100.0)
+                .build();
 
         mockMvc.perform(post("/api/atm/deposit")
                 .contentType("application/json")
-                .content(objectMapper.writeValueAsString(req)))
-            .andDo(print())
+                .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void withdraw_Unauthorized() throws Exception {
+        var request = AtmTransactionRequest.builder()
+                .accountNumber(TEST_ACCOUNT_NUMBER)
+                .amount(50.0)
+                .build();
+
+        mockMvc.perform(post("/api/atm/withdraw")
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(request)))            .andExpect(status().isUnauthorized());
     }
 }

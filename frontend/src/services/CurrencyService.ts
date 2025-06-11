@@ -101,6 +101,107 @@ class CurrencyService {
     }
 
     /**
+     * Get exchange rate from EUR to target currency
+     */
+    async getExchangeRateFromEur(toCurrency: string): Promise<number> {
+        if (toCurrency === 'EUR') {
+            return 1.0;
+        }
+
+        const cacheKey = `EUR_${toCurrency}`;
+        const cached = this.exchangeRatesCache.get(cacheKey);
+
+        // Check if we have a valid cached rate
+        if (cached && (Date.now() - cached.timestamp) < this.CACHE_DURATION) {
+            return cached.rate;
+        }
+
+        try {
+            const response = await apiClient.get(API_ENDPOINTS.currency.exchangeRate, {
+                params: {
+                    fromCurrency: 'EUR',
+                    toCurrency: toCurrency,
+                    amount: 1
+                },
+                headers: getAuthHeader()
+            });
+
+            const data: ExchangeRateResponse = response.data;
+            const rate = data.rate;
+
+            // Cache the rate
+            this.exchangeRatesCache.set(cacheKey, {
+                rate: rate,
+                timestamp: Date.now()
+            });
+
+            return rate;
+        } catch (error) {
+            console.error(`Error fetching exchange rate from EUR to ${toCurrency}:`, error);
+
+            // Return fallback rates if API fails (inverse of EUR rates)
+            const fallbackRates: Record<string, number> = {
+                'USD': 1.08,  // 1/0.93
+                'GBP': 0.86,  // 1/1.16
+                'CHF': 0.95,  // 1/1.05
+                'PLN': 4.17   // 1/0.24
+            };
+
+            return fallbackRates[toCurrency] || 1.0;
+        }
+    }
+
+    /**
+     * Convert amount from EUR to target currency
+     */
+    async convertFromEur(amount: number, toCurrency: string): Promise<number> {
+        if (toCurrency === 'EUR') {
+            return amount;
+        }
+
+        const rate = await this.getExchangeRateFromEur(toCurrency);
+        return amount * rate;
+    }
+
+    /**
+     * Convert account limits from EUR defaults to account currency
+     * EUR defaults: singleTransferLimit=3000, dailyTransferLimit=5000, singleWithdrawalLimit=500, dailyWithdrawalLimit=5000
+     */
+    async convertLimitsToAccountCurrency(accountCurrency: string): Promise<{
+        singleTransferLimit: number;
+        dailyTransferLimit: number;
+        singleWithdrawalLimit: number;
+        dailyWithdrawalLimit: number;
+    }> {
+        // Default EUR limits
+        const eurLimits = {
+            singleTransferLimit: 3000,
+            dailyTransferLimit: 5000,
+            singleWithdrawalLimit: 500,
+            dailyWithdrawalLimit: 5000
+        };
+
+        if (accountCurrency === 'EUR') {
+            return eurLimits;
+        }
+
+        // Convert all limits to account currency
+        const [singleTransferLimit, dailyTransferLimit, singleWithdrawalLimit, dailyWithdrawalLimit] = await Promise.all([
+            this.convertFromEur(eurLimits.singleTransferLimit, accountCurrency),
+            this.convertFromEur(eurLimits.dailyTransferLimit, accountCurrency),
+            this.convertFromEur(eurLimits.singleWithdrawalLimit, accountCurrency),
+            this.convertFromEur(eurLimits.dailyWithdrawalLimit, accountCurrency)
+        ]);
+
+        return {
+            singleTransferLimit: Math.round(singleTransferLimit * 100) / 100, // Round to 2 decimal places
+            dailyTransferLimit: Math.round(dailyTransferLimit * 100) / 100,
+            singleWithdrawalLimit: Math.round(singleWithdrawalLimit * 100) / 100,
+            dailyWithdrawalLimit: Math.round(dailyWithdrawalLimit * 100) / 100
+        };
+    }
+
+    /**
      * Clear exchange rate cache
      */
     clearCache(): void {
