@@ -81,7 +81,8 @@ export const API_ENDPOINTS = {
         search: '/account/search',
         getIBANByUsername: '/account/getIBANByUsername',
         limits: '/account/limits',
-        create: '/account/create'
+        create: '/account/create',
+        disable: '/account/disable'
     },
     transaction: {
         getAll: '/transaction/getall',

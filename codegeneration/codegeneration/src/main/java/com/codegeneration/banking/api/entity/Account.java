@@ -38,6 +38,9 @@ public class Account {
     @Column(nullable = false)
     private String accountName;
 
+    @Column
+    private boolean disabled = false;
+
     @Column(nullable = false)
     private String accountType;    @Column(nullable = false, precision = 19, scale = 4)
     @Builder.Default

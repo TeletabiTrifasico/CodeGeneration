@@ -94,10 +94,12 @@
 <script setup lang="ts">
 import { ref, computed, reactive, watch } from 'vue';
 import { useAccountStore } from '@/stores/account.store';
+import { User } from '@/models';
 
 // Props
 interface Props {
   isOpen: boolean;
+  user?: User
 }
 
 const props = defineProps<Props>();
@@ -236,7 +238,8 @@ const handleSubmit = async () => {
       accountType: form.accountType,
       currency: form.currency,
       initialBalance: form.initialBalance || 0,
-      dailyTransferLimit: form.dailyTransferLimit || 5000
+      dailyTransferLimit: form.dailyTransferLimit || 5000,
+      ...(props.user ? { userId: props.user.id } : {})
     };
 
     const newAccount = await accountStore.createAccount(accountData);

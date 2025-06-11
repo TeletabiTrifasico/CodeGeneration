@@ -1,5 +1,5 @@
 ﻿import { defineStore } from 'pinia';
-import { Account } from '@/models';
+import { Account, User } from '@/models';
 import { useAuthStore } from './auth.store';
 import { apiClient, API_ENDPOINTS, getAuthHeader } from '@/services/api.config';
 import { currencyService } from '@/services/CurrencyService.ts';
@@ -197,6 +197,7 @@ export const useAccountStore = defineStore('account', {
             accountName: string;
             accountType: string;
             currency: string;
+            userId?: number;
         }) {
             const authStore = useAuthStore();
 
@@ -224,6 +225,32 @@ export const useAccountStore = defineStore('account', {
             } finally {
                 this.loading = false;
             }
-        }
+        },
+
+        async deleteAccount(accountNumber: string) {
+  const authStore = useAuthStore();
+
+  if (!authStore.isLoggedIn) {
+    throw new Error('Not authenticated');
+  }
+
+  try {
+    this.loading = true;
+    this.error = null;
+
+    const response = await apiClient.put(
+      `${API_ENDPOINTS.account.disable}/${accountNumber}`,
+      { headers: getAuthHeader() }
+    );
+
+    return response.data;
+  } catch (error: any) {
+    console.error('Error deleting account:', error);
+    this.error = error.response?.data?.message || error.message || 'Failed to delete account';
+    throw this.error;
+  } finally {
+    this.loading = false;
+  }
+}
     }
 });

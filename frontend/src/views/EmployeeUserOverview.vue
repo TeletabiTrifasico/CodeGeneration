@@ -7,6 +7,8 @@ import UserItem from '../components/EmployeeUserItem.vue';
 import { Account, Transaction, User } from '@/models';
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
 import LimitModal from '../components/modals/LimitModal.vue'
+import CreateAccountModal from '../components/modals/CreateAccountModal.vue'
+import DeleteAccountModal from '../components/modals/DeleteAccountModal.vue'
 import TransferModal from '../components/modals/TransferModal.vue'
 import { useAccountStore } from '@/stores';
 
@@ -43,6 +45,8 @@ const router = useRouter();
 const userId = route.params.id;
 const showLimitModal = ref(false);
 const showTransferModal = ref(false);
+const showCreateAccountModal = ref(false);
+const showDeleteAccountModal = ref(false);
 let selectedAccount: Account;
 let user: User | null = null;
 
@@ -242,6 +246,15 @@ onBeforeRouteLeave((to, from, next) => {
               </li>
             </ul>
           </div>
+          <div class ="accounts-list">
+            <button @click="openCreateAccountModal" class="action-button">
+                <span class="action-icon">✏️</span> Create Account
+              </button>
+              <button @click="openDeleteAccountModal" class="action-button" style="background-color:#d32f2f;">
+                <span class="action-icon">🗑️</span> Close Account
+              </button>
+          </div>
+          
           <div class="transfer-panel">
             <h3>Transfer</h3>
             <button class="action-button" @click="openTransferModal">Transfer</button>

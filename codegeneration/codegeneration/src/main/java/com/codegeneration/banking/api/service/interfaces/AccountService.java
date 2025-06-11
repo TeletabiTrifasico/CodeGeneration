@@ -91,6 +91,15 @@ public interface AccountService {
     Account createAccount(CreateAccountRequest createAccountRequest, User user);
 
     /**
+     * Set account as disabled
+     *
+     * @param accountNumber The account to disable
+     * @return The deleted account incase it's needed at some point
+     */
+    Account setAccountAsDisabled(String accountNumber);
+    
+
+    /**
      * Edit limits for an account
      * 
      * @param limitUpdateRequest The update request
