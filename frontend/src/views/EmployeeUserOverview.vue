@@ -62,18 +62,20 @@ const openTransferModal = () => {
 }
 const closeTransferModal = () => {
   showTransferModal.value = false;
+  refreshData();
 }
-const openAccountModal = () => {
+const openCreateAccountModal = () => {
   showCreateAccountModal.value = true;
 }
-const closeAccountModal = () => {
+const closeCreateAccountModal = () => {
   showCreateAccountModal.value = false;
 }
-const openAccountModal = () => {
-  showCreateAccountModal.value = true;
+
+const openDeleteAccountModal = () => {
+  showDeleteAccountModal.value = true;
 }
-const closeAccountModal = () => {
-  showCreateAccountModal.value = false;
+const closeDeleteAccountModal = () => {
+  showDeleteAccountModal.value = false;
 }
 
 
