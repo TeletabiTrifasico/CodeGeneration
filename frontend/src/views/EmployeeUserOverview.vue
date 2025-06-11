@@ -238,7 +238,7 @@ onBeforeRouteLeave((to, from, next) => {
           </div>
           <div class="limits-panel">
             <h3>Account Limits</h3>
-            <div class="limits-container">
+            <div v-if="selectedAccount != null" class="limits-container">
               <div class="limit-group">
                 <div class="limit-item">
                   <span class="limit-label">Daily Transfer Limit</span>
