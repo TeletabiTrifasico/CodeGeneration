@@ -7,6 +7,8 @@ import UserItem from '../components/EmployeeUserItem.vue';
 import { Account, Transaction, User } from '@/models';
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
 import LimitModal from '../components/modals/LimitModal.vue'
+import CreateAccountModal from '../components/modals/CreateAccountModal.vue'
+import DeleteAccountModal from '../components/modals/DeleteAccountModal.vue'
 import { useAccountStore } from '@/stores';
 
 
@@ -41,6 +43,8 @@ const route = useRoute();
 const router = useRouter();
 const userId = route.params.id;
 const showLimitModal = ref(false);
+const showCreateAccountModal = ref(false);
+const showDeleteAccountModal = ref(false);
 let selectedAccount: Account;
 let user: User | null = null;
 
@@ -51,6 +55,26 @@ const openLimitModal = () => {
 }
 const closeLimitModal = () => {
   showLimitModal.value = false;
+  console.log("closing");
+}
+
+const openCreateAccountModal = () => {
+  showCreateAccountModal.value = true;
+  console.log("opening");
+  console.log(showCreateAccountModal);
+}
+const closeCreateAccountModal = () => {
+  showCreateAccountModal.value = false;
+  console.log("closing");
+}
+
+const openDeleteAccountModal = () => {
+  showDeleteAccountModal.value = true;
+  console.log("opening");
+  console.log(showDeleteAccountModal);
+}
+const closeDeleteAccountModal = () => {
+  showDeleteAccountModal.value = false;
   console.log("closing");
 }
 
@@ -236,6 +260,15 @@ onBeforeRouteLeave((to, from, next) => {
               </li>
             </ul>
           </div>
+          <div class ="accounts-list">
+            <button @click="openCreateAccountModal" class="action-button">
+                <span class="action-icon">✏️</span> Create Account
+              </button>
+              <button @click="openDeleteAccountModal" class="action-button" style="background-color:#d32f2f;">
+                <span class="action-icon">🗑️</span> Close Account
+              </button>
+          </div>
+          
           <div class="limits-panel">
             <h3>Account Limits</h3>
             <div v-if="selectedAccount != null" class="limits-container">
@@ -316,7 +349,9 @@ onBeforeRouteLeave((to, from, next) => {
       </div>
     </div>
     <LimitModal :show="showLimitModal" :selectedAccount="selectedAccount" @close="closeLimitModal" @edit-complete="refreshData"/>
-  </div>
+    <CreateAccountModal :isOpen="showCreateAccountModal" :user="user ?? undefined" @close="closeCreateAccountModal" @account-created="() => { closeCreateAccountModal(); refreshData(); }"/>
+    <DeleteAccountModal :show="showDeleteAccountModal" :selectedAccount="selectedAccount" @close="closeDeleteAccountModal" @delete-complete="() => { closeDeleteAccountModal(); refreshData(); }"/>
+    </div>
 </template>
 
 

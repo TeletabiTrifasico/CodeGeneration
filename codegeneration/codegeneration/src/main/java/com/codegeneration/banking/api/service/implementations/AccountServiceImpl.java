@@ -145,6 +145,20 @@ public class AccountServiceImpl implements AccountService {
             throw new RuntimeException("Failed to create account: " + e.getMessage(), e);
         }
     }
+    @Transactional
+    public Account setAccountAsDisabled(String accountNumber) {
+        try {
+            Account account = accountRepository.findByAccountNumber(accountNumber).get();
+            account.setDisabled(true);
+            accountRepository.save(account);
+            return account;
+
+        } catch (Exception e) {
+            System.err.println("Error disabling account " + accountNumber + " - " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Failed to disable account: " + e.getMessage(), e);
+        }
+    }
 
     /**
      * Generate a unique account number in IBAN format (NL + 2 digits + bank code + 10 digits)
