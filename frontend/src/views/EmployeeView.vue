@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, reactive } from 'vue';
 import { useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUserStore } from '@/stores/user.store';
 import UserItem from '../components/EmployeeUserItem.vue';
 import PendingUserItem from '../components/PendingUserItem.vue';
-
-
+import UserFilter from '../components/UserFilter.vue';
 
 // User reactive state
 const authStore = useAuthStore();
@@ -18,6 +17,10 @@ const showPending = ref(false);
 let currentPage = 1;
 let pageUsers = {};
 
+// Add current filters state
+const currentFilters = reactive({});
+const hasActiveFilters = ref(false);
+
 const handleLogout = () => {
   authStore.logout();
 };
@@ -28,39 +31,91 @@ const toggleView = async () => {
   await loadData();
 };
 
+// Update loadData to handle filters
 const loadData = async () => {
   isLoading.value = true;
-  if (showPending.value) {
-    pageUsers = await userStore.getDisabledUsersByPage(currentPage);
-  } else {
-    pageUsers = await userStore.getUsersByPage(currentPage);
+  try {
+    if (showPending.value) {
+      pageUsers = await userStore.getDisabledUsersByPage(currentPage);
+    } else {
+      // First, load all users for the current page
+      const users = await userStore.getUsersByPage(currentPage);
+      
+      // If we have active filters, apply client-side filtering
+      if (hasActiveFilters.value) {
+        // Use the store's filterUsers method (added above)
+        pageUsers = userStore.filterUsers(users, currentFilters);
+        
+        // If no results after filtering, show empty array
+        if (Object.keys(pageUsers).length === 0) {
+          pageUsers = [];
+        }
+      } else {
+        pageUsers = users;
+      }
+    }
+  } catch (error) {
+    console.error('Error loading data:', error);
+    error.value = 'Failed to load users. Please try again.';
+  } finally {
+    isLoading.value = false;
   }
-  isLoading.value = false;
+};
+
+// Add handler for filter changes
+const handleFiltersChanged = (filters) => {
+  Object.assign(currentFilters, filters);
+  hasActiveFilters.value = Object.values(filters).some(value => 
+    value !== null && value !== '' && value !== undefined
+  );
+  currentPage = 1; // Reset to first page when filters change
+  loadData();
 };
 
 const refreshData = () => {
   loadData();
 };
+
 async function changePage(changeAmount: number) {
   isLoading.value = true;
   currentPage += changeAmount;
   
-  if (showPending.value) {
-    pageUsers = await userStore.getDisabledUsersByPage(currentPage);
-  } else {
-    pageUsers = await userStore.getUsersByPage(currentPage);
-  }
-  
-  if (Object.keys(pageUsers).length === 0) {
-    currentPage--;
-    // Try again with the previous page
+  try {
     if (showPending.value) {
       pageUsers = await userStore.getDisabledUsersByPage(currentPage);
     } else {
-      pageUsers = await userStore.getUsersByPage(currentPage);
+      // Load users for the new page
+      const users = await userStore.getUsersByPage(currentPage);
+      
+      // Apply filtering if needed
+      if (hasActiveFilters.value && users.length > 0) {
+        pageUsers = userStore.filterUsers(users, currentFilters);
+      } else {
+        pageUsers = users;
+      }
     }
+    
+    // If we got no results, go back to the previous page
+    if (Object.keys(pageUsers).length === 0 && currentPage > 1) {
+      currentPage--;
+      // Try again with the previous page
+      if (showPending.value) {
+        pageUsers = await userStore.getDisabledUsersByPage(currentPage);
+      } else {
+        const users = await userStore.getUsersByPage(currentPage);
+        if (hasActiveFilters.value) {
+          pageUsers = userStore.filterUsers(users, currentFilters);
+        } else {
+          pageUsers = users;
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error changing page:', error);
+    error.value = 'Failed to load users. Please try again.';
+  } finally {
+    isLoading.value = false;
   }
-  isLoading.value = false;
 }
 
 onMounted(async () => {
@@ -95,7 +150,8 @@ watch(
     <header class="panel-header">
       <div class="user-welcome">
         <h1>Welcome, employee {{ user ? user.name : 'User' }}!</h1>
-      </div>      <div class="header-actions">
+      </div>
+      <div class="header-actions">
         <button @click="toggleView" class="toggle-button">
           {{ showPending ? 'Show All Users' : 'Show Pending Users' }}
         </button>
@@ -106,23 +162,39 @@ watch(
       </div>
     </header>
 
+    <!-- Add UserFilter component - only show when not in pending users view -->
+    <UserFilter 
+      v-if="!showPending" 
+      :initialFilters="currentFilters"
+      @filters-changed="handleFiltersChanged"
+    />
+
     <!-- Main panel content -->
     <div v-if="error" class="error-panel">
       <p>{{ error }}</p>
       <button @click="refreshData" class="action-button">Try Again</button>
-    </div>    <div v-else class="panel-container">
+    </div>
+    <div v-else class="panel-container">
       <div v-if="isLoading" class="loading-container">
         <span class="spinner"></span>
         <p>Loading users...</p>
       </div>
       <div v-else class="users-container">
+        <!-- Add filter indicator when filters are active -->
+        <div v-if="hasActiveFilters && !showPending" class="filter-status">
+          <span>Showing filtered results</span>
+        </div>
+        
         <div class="users-list">
           <div v-for="item in pageUsers" :key="item.id" class="user-item">
             <PendingUserItem v-if="showPending" :user="item" @user-approved="loadData"/>
             <UserItem v-else :user="item"/>
           </div>
           <div v-if="Object.keys(pageUsers).length === 0" class="no-users">
-            <p>{{ showPending ? 'No pending users found' : 'No users found' }}</p>
+            <p>
+              {{ showPending ? 'No pending users found' : 
+                 hasActiveFilters ? 'No users match the current filters' : 'No users found' }}
+            </p>
           </div>
         </div>
         
@@ -499,5 +571,18 @@ h1 {
   display: flex;
   flex-direction: row;
   justify-content: center;
+}
+
+/* Add styles for filter status */
+.filter-status {
+  background-color: #e8f5e8;
+  color: #2e7d32;
+  padding: 10px 15px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 500;
 }
 </style>

@@ -9,7 +9,7 @@ interface UserState {
     loading: boolean;
     error: string | null;
 }
-const USERS_PER_PAGE = 5; //Should be a constant value
+const USERS_PER_PAGE = 10; //Users per page for pagination
 
 export const useUserStore = defineStore('use', {
     state: (): UserState => ({
@@ -134,6 +134,90 @@ export const useUserStore = defineStore('use', {
             } finally {
                 this.loading = false;
             }
+        },
+
+        // Add a method to get filtered users
+        async getFilteredUsers(filters, page = 1, limit = USERS_PER_PAGE) {
+          const authStore = useAuthStore();
+          if (!authStore.isLoggedIn) {
+            this.error = 'Not authenticated';
+            return [];
+          }
+        
+          try {
+            this.loading = true;
+            this.error = null;
+            
+            // Since we don't have a dedicated filter endpoint, let's get all users and filter client-side
+            const response = await apiClient.get(
+              API_ENDPOINTS.user.byPage(page, limit),
+              { headers: getAuthHeader() }
+            );
+            
+            // Get users from the response
+            const allUsers = response.data.users || [];
+            
+            // Do client-side filtering
+            const filteredUsers = this.filterUsers(allUsers, filters);
+            
+            return filteredUsers;
+          } catch (error: any) {
+            console.error('Error fetching filtered users:', error);
+            this.error = error.message || 'Failed to load filtered users';
+            return [];
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        // Client-side filtering function
+        filterUsers(users, filters) {
+          return users.filter(user => {
+            // Name filter
+            if (filters.name && (!user.name || !user.name.toLowerCase().includes(filters.name.toLowerCase()))) {
+              return false;
+            }
+            
+            // Username filter
+            if (filters.username && (!user.username || !user.username.toLowerCase().includes(filters.username.toLowerCase()))) {
+              return false;
+            }
+            
+            // Email filter
+            if (filters.email && (!user.email || !user.email.toLowerCase().includes(filters.email.toLowerCase()))) {
+              return false;
+            }
+            
+            // Role filter
+            if (filters.role && (!user.role || user.role !== filters.role)) {
+              return false;
+            }
+            
+            // Status filter
+            if (filters.status !== undefined && filters.status !== '' && user.enabled !== (filters.status === 'true')) {
+              return false;
+            }
+            
+            // Min accounts filter
+            if (filters.minAccounts && (!user.accounts || user.accounts.length < filters.minAccounts)) {
+              return false;
+            }
+            
+            // Balance filters
+            if ((filters.minBalance || filters.maxBalance) && user.accounts) {
+              const totalBalance = user.accounts.reduce((sum, acc) => sum + (parseFloat(acc.balance) || 0), 0);
+              
+              if (filters.minBalance && totalBalance < filters.minBalance) {
+                return false;
+              }
+              
+              if (filters.maxBalance && totalBalance > filters.maxBalance) {
+                return false;
+              }
+            }
+            
+            return true;
+          });
         }
     }
 });
