@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, onBeforeUnmount } from 'vue';
+import { ref, onMounted, computed, onBeforeUnmount, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth.store';
 import { useUserStore } from '@/stores/user.store';
 import { useTransactionStore } from '@/stores/transaction.store';
@@ -94,6 +94,10 @@ const selectAccount = async (accountId: Number) => {
     } else {
       await transactionStore.fetchAllTransactions();
     }
+    
+    // Reset to first page when changing accounts
+    currentTransactionPage.value = 1;
+    calculateTotalPages();
   } catch (err: any) {
     console.error('Error fetching dashboard data:', err);
     error.value = err.message || 'Failed to load dashboard data';
@@ -198,6 +202,48 @@ onBeforeRouteLeave((to, from, next) => {
   isLoading.value = true;
   next();
 });
+
+// Pagination state
+const transactionsPerPage = 3;
+const currentTransactionPage = ref(1);
+const totalTransactionPages = ref(1);
+
+// Get all transactions but display paginated results
+const paginatedTransactions = computed(() => {
+  const startIndex = (currentTransactionPage.value - 1) * transactionsPerPage;
+  const endIndex = startIndex + transactionsPerPage;
+  return sortedTransactions.value.slice(startIndex, endIndex);
+});
+
+// Calculate total pages based on transaction count
+const calculateTotalPages = () => {
+  if (sortedTransactions.value.length > 0) {
+    totalTransactionPages.value = Math.ceil(sortedTransactions.value.length / transactionsPerPage);
+  } else {
+    totalTransactionPages.value = 1;
+  }
+};
+
+// Change transaction page
+const changeTransactionPage = (changeAmount: number) => {
+  const newPage = currentTransactionPage.value + changeAmount;
+  
+  // Stay within bounds
+  if (newPage >= 1 && newPage <= totalTransactionPages.value) {
+    currentTransactionPage.value = newPage;
+  }
+};
+
+// Recalculate pages when transactions change
+watch(
+  () => sortedTransactions.value.length,
+  () => {
+    calculateTotalPages();
+    if (currentTransactionPage.value > totalTransactionPages.value) {
+      currentTransactionPage.value = Math.max(1, totalTransactionPages.value);
+    }
+  }
+);
 </script>
 
 <template>
@@ -327,26 +373,49 @@ onBeforeRouteLeave((to, from, next) => {
               No transactions found for this account.
             </p>
           </div>
-          <ul v-else class="transaction-list">
-            <li v-for="transaction in sortedTransactions" :key="transaction.id" class="transaction-item">
-              <div class="transaction-info">
-                <span class="transaction-date">{{ formatDate(transaction.createAt) }}</span>
-                <span class="transaction-description">{{ getTransactionDescription(transaction) }}</span>
-                <span class="transaction-details">{{ transaction.description }}</span>
-                <span class="transaction-status" :class="transaction.transactionStatus.toLowerCase()">
-                  {{ transaction.transactionStatus }}
+          <div v-else>
+            <ul class="transaction-list">
+              <li v-for="transaction in paginatedTransactions" :key="transaction.id" class="transaction-item">
+                <div class="transaction-info">
+                  <span class="transaction-date">{{ formatDate(transaction.createAt) }}</span>
+                  <span class="transaction-description">{{ getTransactionDescription(transaction) }}</span>
+                  <span class="transaction-details">{{ transaction.description }}</span>
+                  <span class="transaction-status" :class="transaction.transactionStatus.toLowerCase()">
+                    {{ transaction.transactionStatus }}
+                  </span>
+                </div>
+                <span v-if="isPositiveTransaction(transaction)" class="transaction-amount positive">
+                  <span class="transaction-icon">+</span>
+                  {{ formatCurrency(transaction.amount, transaction.currency) }}
                 </span>
-              </div>
-              <span v-if="isPositiveTransaction(transaction)" class="transaction-amount positive">
-                <span class="transaction-icon">+</span>
-                {{ formatCurrency(transaction.amount, transaction.currency) }}
+                <span v-else class="transaction-amount negative">
+                  <span class="transaction-icon">-</span>
+                  {{ formatCurrency(transaction.amount, transaction.currency) }}
+                </span>
+              </li>
+            </ul>
+            
+            <!-- Pagination controls -->
+            <div class="pagination">
+              <button 
+                @click="changeTransactionPage(-1)"
+                :disabled="currentTransactionPage === 1"
+                class="pagination-button"
+              >
+                ← Previous
+              </button>
+              <span class="page-info">
+                Page {{ currentTransactionPage }} of {{ totalTransactionPages }}
               </span>
-              <span v-else class="transaction-amount negative">
-                <span class="transaction-icon">-</span>
-                {{ formatCurrency(transaction.amount, transaction.currency) }}
-              </span>
-            </li>
-          </ul>
+              <button 
+                @click="changeTransactionPage(1)"
+                :disabled="currentTransactionPage === totalTransactionPages"
+                class="pagination-button"
+              >
+                Next →
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -854,6 +923,51 @@ onBeforeRouteLeave((to, from, next) => {
 @keyframes loading {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
+}
+
+/* Pagination styles */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  padding: 20px 0;
+  border-top: 1px solid #eee;
+  margin-top: 20px;
+}
+
+.pagination-button {
+  padding: 10px 20px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background-color: #fff;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.pagination-button:hover:not(:disabled) {
+  background-color: #f5f5f5;
+  border-color: #ccc;
+  transform: translateY(-1px);
+}
+
+.pagination-button:disabled {
+  background-color: #f9f9f9;
+  color: #ccc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.page-info {
+  padding: 10px 15px;
+  background-color: #4CAF50;
+  color: white;
+  border-radius: 6px;
+  font-weight: 500;
+  min-width: 120px;
+  text-align: center;
 }
 
 /* Responsive Adjustments */
