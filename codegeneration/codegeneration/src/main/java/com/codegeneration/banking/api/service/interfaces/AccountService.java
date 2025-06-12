@@ -2,6 +2,7 @@ package com.codegeneration.banking.api.service.interfaces;
 
 import com.codegeneration.banking.api.entity.Account;
 import com.codegeneration.banking.api.entity.User;
+import com.codegeneration.banking.api.exception.InsufficientFundsException;
 import com.codegeneration.banking.api.dto.account.CreateAccountRequest;
 
 import java.math.BigDecimal;
@@ -106,4 +107,12 @@ public interface AccountService {
      * @return The updated account
      */
     Account editLimits(LimitUpdateRequest limitUpdateRequest);
+
+    /**
+ * Save an account to the database
+ *
+ * @param account The account to save
+ * @return The saved account
+ */
+Account saveAccount(Account account);
 }
