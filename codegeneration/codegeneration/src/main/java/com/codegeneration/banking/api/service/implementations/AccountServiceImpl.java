@@ -198,4 +198,10 @@ public class AccountServiceImpl implements AccountService {
             throw new RuntimeException(e);
         }
     }
+
+    @Override
+@Transactional
+public Account saveAccount(Account account) {
+    return accountRepository.save(account);
+}
 }
