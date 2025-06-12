@@ -96,11 +96,6 @@ const handleLogin = async () => {
           <span v-else>Login</span>
         </button>
       </form>
-
-      <div class="login-footer">
-        <p>Test credentials:</p>
-        <p>Username: user1 | Password: user123</p>
-      </div>
     </div>
   </div>
 </template>

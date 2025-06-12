@@ -4,10 +4,12 @@ import { useAuthStore } from '@/stores/auth.store';
 import { useAccountStore } from '@/stores/account.store';
 import { useTransactionStore } from '@/stores/transaction.store';
 import { Account, Transaction } from '@/models';
-import { TransactionFilters } from '@/services/api.config';
-import TransferModal from "@/components/modals/TransferModal.vue";
-import CreateAccountModal from "@/components/modals/CreateAccountModal.vue";
-import TransactionFilter from "@/components/TransactionFilter.vue";
+import AccountDetailsModal from '../components/modals/AccountDetailsModal.vue';
+import LimitModal from '../components/modals/LimitModal.vue';
+import CreateAccountModal from '../components/modals/CreateAccountModal.vue';
+import DeleteAccountModal from '../components/modals/DeleteAccountModal.vue';
+import TransferModal from '../components/modals/TransferModal.vue';
+import TransactionFilter from '../components/TransactionFilter.vue';
 
 // Get the stores
 const authStore = useAuthStore();
@@ -103,106 +105,73 @@ const fetchFilteredData = async (filters: TransactionFilters) => {
   }
 };
 
-const selectAccount = (account: Account) => {
+// Add pagination state
+const transactionsPerPage = 5;
+const currentTransactionPage = ref(1);
+const totalTransactionPages = ref(1);
+
+// Get all transactions but display paginated results
+const paginatedTransactions = computed(() => {
+  const startIndex = (currentTransactionPage.value - 1) * transactionsPerPage;
+  const endIndex = startIndex + transactionsPerPage;
+  return sortedTransactions.value.slice(startIndex, endIndex);
+});
+
+// Calculate total pages based on transaction count
+const calculateTotalPages = () => {
+  if (sortedTransactions.value.length > 0) {
+    totalTransactionPages.value = Math.ceil(sortedTransactions.value.length / transactionsPerPage);
+  } else {
+    totalTransactionPages.value = 1;
+  }
+};
+
+// Add function to change transaction page
+const changeTransactionPage = (changeAmount: number) => {
+  const newPage = currentTransactionPage.value + changeAmount;
+  
+  // Make sure we stay within bounds
+  if (newPage >= 1 && newPage <= totalTransactionPages.value) {
+    currentTransactionPage.value = newPage;
+  }
+};
+
+const selectAccount = async (account: Account) => {
+  // Use the store method instead of direct assignment
   accountStore.setSelectedAccount(account);
-  // Clear filters when switching accounts
-  transactionStore.clearFilters();
-};
+  
+  try {
+    isLoading.value = true;
+    error.value = '';
 
-const viewAllAccounts = () => {
-  accountStore.setSelectedAccount(null);
-  // Clear filters when switching to all accounts view
-  transactionStore.clearFilters();
-};
-
-const refreshData = async () => {
-  if (hasActiveFilters.value) {
-    await fetchFilteredData(currentFilters.value);
-  } else {
-    await fetchDashboardData();
-  }
-
-  // Also refresh the total balance calculation
-  if (!selectedAccount.value) {
-    await accountStore.refreshTotalBalance();
-  }
-};
-
-const handleFiltersChanged = (filters: TransactionFilters) => {
-  const hasFilters = Object.values(filters).some(value =>
-      value !== undefined && value !== null && value !== ''
-  );
-
-  if (hasFilters) {
-    fetchFilteredData(filters);
-  } else {
-    // No filters, fetch all data
-    fetchDashboardData();
-  }
-};
-
-// Transaction display helpers
-const getTransactionDescription = (transaction: Transaction): string => {
-  const userAccountNumbers = accounts.value.map(acc => acc.accountNumber);
-
-  // Check if it's an ATM deposit or withdrawal first
-  if (transaction.transactionType === 'ATM_DEPOSIT') {
-    return `ATM Deposit`;
-  } else if (transaction.transactionType === 'ATM_WITHDRAWAL') {
-    return `ATM Withdrawal`;
-  }
-
-  let isIncoming = userAccountNumbers.includes(transaction.destinationAccount.accountNumber) &&
-      !userAccountNumbers.includes(transaction.sourceAccount.accountNumber);
-
-  let isOutgoing = userAccountNumbers.includes(transaction.sourceAccount.accountNumber) &&
-      !userAccountNumbers.includes(transaction.destinationAccount.accountNumber);
-
-  let isInternal = userAccountNumbers.includes(transaction.sourceAccount.accountNumber) &&
-      userAccountNumbers.includes(transaction.destinationAccount.accountNumber);
-
-  if (isIncoming) {
-    return `From: ${transaction.sourceAccount.accountName} (${transaction.sourceAccount.accountNumber})`;
-  } else if (isOutgoing) {
-    return `To: ${transaction.destinationAccount.accountName} (${transaction.destinationAccount.accountNumber})`;
-  } else if (isInternal) {
-    return `Transfer: ${transaction.sourceAccount.accountName} → ${transaction.destinationAccount.accountName}`;
-  }
-
-  return transaction.description || 'Transaction';
-};
-
-const isPositiveTransaction = (transaction: Transaction): boolean => {
-  const userAccountNumbers = accounts.value.map(acc => acc.accountNumber);
-
-  if (selectedAccount.value) {
-    // If a specific account is selected
-    if (transaction.destinationAccount.accountNumber === selectedAccount.value.accountNumber) {
-      return true; // Money coming in to this account
+    // Then fetch transactions based on selected account
+    if (account.accountNumber) {
+      await transactionStore.fetchTransactionsByAccount(account.accountNumber);
+    } else {
+      await transactionStore.fetchAllTransactions();
     }
-    if (transaction.sourceAccount.accountNumber === selectedAccount.value.accountNumber) {
-      return false; // Money going out from this account
-    }
-  } else {
-    // If money coming in from external source
-    if (userAccountNumbers.includes(transaction.destinationAccount.accountNumber) &&
-        !userAccountNumbers.includes(transaction.sourceAccount.accountNumber)) {
-      return true;
-    }
-    // If money going out to external destination
-    if (userAccountNumbers.includes(transaction.sourceAccount.accountNumber) &&
-        !userAccountNumbers.includes(transaction.destinationAccount.accountNumber)) {
-      return false;
-    }
-    // If internal transfer, it's neutral (but we'll show as positive)
-    if (userAccountNumbers.includes(transaction.sourceAccount.accountNumber) &&
-        userAccountNumbers.includes(transaction.destinationAccount.accountNumber)) {
-      return true;
+    
+    // Reset to first page when changing accounts
+    currentTransactionPage.value = 1;
+    calculateTotalPages();
+  } catch (err: any) {
+    console.error('Error fetching dashboard data:', err);
+    error.value = err.message || 'Failed to load dashboard data';
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+// Recalculate pages when transactions change
+watch(
+  () => sortedTransactions.value.length,
+  () => {
+    calculateTotalPages();
+    if (currentTransactionPage.value > totalTransactionPages.value) {
+      currentTransactionPage.value = Math.max(1, totalTransactionPages.value);
     }
   }
-
-  return true;
-};
+);
 
 // Transfer modal methods
 const openTransferModal = () => {
@@ -259,7 +228,91 @@ onMounted(async () => {
     console.error('Token validation error:', err);
     authStore.logout();
   }
+
+  // Add this at the end of onMounted
+  calculateTotalPages();
 });
+
+const getTransactionDescription = (transaction: Transaction): string => {
+  const userAccountNumbers = accounts.value.map(acc => acc.accountNumber);
+
+  let isIncoming = userAccountNumbers.includes(transaction.destinationAccount.accountNumber) &&
+      !userAccountNumbers.includes(transaction.sourceAccount.accountNumber);
+
+  let isOutgoing = userAccountNumbers.includes(transaction.sourceAccount.accountNumber) &&
+      !userAccountNumbers.includes(transaction.destinationAccount.accountNumber);
+
+  let isInternal = userAccountNumbers.includes(transaction.sourceAccount.accountNumber) &&
+      userAccountNumbers.includes(transaction.destinationAccount.accountNumber);
+
+  if (isIncoming) {
+    return `From: ${transaction.sourceAccount.accountName} (${transaction.sourceAccount.accountNumber})`;
+  } else if (isOutgoing) {
+    return `To: ${transaction.destinationAccount.accountName} (${transaction.destinationAccount.accountNumber})`;
+  } else if (isInternal) {
+    return `Transfer: ${transaction.sourceAccount.accountName} → ${transaction.destinationAccount.accountName}`;
+  }
+
+  return transaction.description || 'Transaction';
+};
+
+// Replace the isPositiveTransaction function with this improved version
+const isPositiveTransaction = (transaction: Transaction): boolean => {
+  // If a specific account is selected, use that to determine direction
+  if (selectedAccount.value) {
+    // If the selected account is the destination, it's receiving money (positive)
+    if (transaction.destinationAccount.accountNumber === selectedAccount.value.accountNumber) {
+      return true;
+    }
+    // If the selected account is the source, it's sending money (negative)
+    if (transaction.sourceAccount.accountNumber === selectedAccount.value.accountNumber) {
+      return false;
+    }
+    // If neither matches, don't show this transaction (shouldn't happen)
+    return false;
+  } else {
+    // No specific account selected, show all user transactions
+    const userAccountNumbers = accounts.value.map(acc => acc.accountNumber);
+    
+    // Money coming in from outside (positive)
+    if (userAccountNumbers.includes(transaction.destinationAccount.accountNumber) &&
+        !userAccountNumbers.includes(transaction.sourceAccount.accountNumber)) {
+      return true;
+    }
+    
+    // Money going out (negative)
+    if (userAccountNumbers.includes(transaction.sourceAccount.accountNumber) &&
+        !userAccountNumbers.includes(transaction.destinationAccount.accountNumber)) {
+      return false;
+    }
+    
+    // Internal transfer between accounts - show as neutral (use destination as positive)
+    if (userAccountNumbers.includes(transaction.sourceAccount.accountNumber) &&
+        userAccountNumbers.includes(transaction.destinationAccount.accountNumber)) {
+      // For "All Accounts" view, internal transfers appear as positive for destination
+      return true;
+    }
+  }
+  
+  // Default fallback
+  return false;
+};
+
+// Add the handleFiltersChanged method
+const handleFiltersChanged = async (filters) => {
+  await fetchFilteredData(filters);
+  // Reset to first page when filters change
+  currentTransactionPage.value = 1;
+  calculateTotalPages();
+};
+
+// Add the refreshData method if missing
+const refreshData = async () => {
+  await fetchDashboardData();
+  // Reset to first page
+  currentTransactionPage.value = 1;
+  calculateTotalPages();
+};
 </script>
 
 <template>
@@ -293,8 +346,9 @@ onMounted(async () => {
           </div>
         </div>
         
+        <!-- Account skeleton loaders -->
         <div v-if="isLoading || accountStore.isLoading" class="card-loading">
-          <div v-for="i in 3" :key="i" class="skeleton-loader account-skeleton"></div>
+          <div v-for="i in 3" :key="`acc-skeleton-${i}`" class="skeleton-loader account-skeleton"></div>
         </div>
         
         <div v-else-if="accounts.length === 0" class="no-accounts-state">
@@ -307,8 +361,8 @@ onMounted(async () => {
         </div>
         <ul v-else class="accounts-list">
           <li
-              v-for="account in accounts"
-              :key="account.id"
+              v-for="(account, index) in accounts"
+              :key="`acc-${account.id}-${index}`"
               class="account-item"
               :class="{ 'selected': selectedAccount && selectedAccount.id === account.id }"
               @click="selectAccount(account)"
@@ -371,8 +425,9 @@ onMounted(async () => {
               @filters-changed="handleFiltersChanged"
           />
 
+          <!-- Transaction skeleton loaders -->
           <div v-if="isLoading || transactionStore.isLoading" class="card-loading">
-            <div v-for="i in 4" :key="i" class="skeleton-loader transaction-skeleton">
+            <div v-for="i in 4" :key="`tx-skeleton-${i}-${currentTransactionPage}`" class="skeleton-loader transaction-skeleton">
               <div class="skeleton-line"></div>
               <div class="skeleton-line short"></div>
             </div>
@@ -386,21 +441,45 @@ onMounted(async () => {
             </p>
           </div>
           <ul v-else class="transaction-list">
-            <li v-for="transaction in sortedTransactions" :key="transaction.id" class="transaction-item">
+            <li v-for="(transaction, index) in paginatedTransactions" :key="`tx-${transaction.id}-${index}`" class="transaction-item">
               <div class="transaction-info">
                 <span class="transaction-date">{{ formatDate(transaction.createAt) }}</span>
                 <span class="transaction-description">{{ getTransactionDescription(transaction) }}</span>
                 <span class="transaction-details">{{ transaction.description }}</span>
-                <span class="transaction-status">{{ transaction.transactionStatus }}</span>
+                <span class="transaction-status" :class="transaction.transactionStatus.toLowerCase()">
+                  {{ transaction.transactionStatus }}
+                </span>
               </div>
               <span v-if="isPositiveTransaction(transaction)" class="transaction-amount positive">
+                <span class="transaction-icon">+</span>
                 {{ formatCurrency(transaction.amount, transaction.currency) }}
               </span>
               <span v-else class="transaction-amount negative">
-                {{ `-${formatCurrency(transaction.amount, transaction.currency)}` }}
+                <span class="transaction-icon">-</span>
+                {{ formatCurrency(transaction.amount, transaction.currency) }}
               </span>
             </li>
-          </ul>        </div>
+          </ul>
+          <!-- Pagination Controls -->
+          <div class="pagination">
+  <button 
+    @click="changeTransactionPage(-1)"
+    :disabled="currentTransactionPage === 1"
+    class="pagination-button"
+  >
+    ← Previous
+  </button>
+  <span class="page-info">
+    Page {{ currentTransactionPage }} of {{ totalTransactionPages }}
+  </span>
+  <button 
+    @click="changeTransactionPage(1)"
+    :disabled="currentTransactionPage === totalTransactionPages"
+    class="pagination-button"
+  >
+    Next →
+  </button>
+</div>        </div>
       </div>
     </div>    <!-- Modals -->
     <TransferModal
@@ -1005,6 +1084,51 @@ h1 {
 
 .action-icon {
   font-size: 1.2rem;
+}
+
+/* Pagination Styles */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  padding: 20px 0;
+  border-top: 1px solid #eee;
+  margin-top: 20px;
+}
+
+.pagination-button {
+  padding: 10px 20px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background-color: #fff;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.pagination-button:hover:not(:disabled) {
+  background-color: #f5f5f5;
+  border-color: #ccc;
+  transform: translateY(-1px);
+}
+
+.pagination-button:disabled {
+  background-color: #f9f9f9;
+  color: #ccc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.page-info {
+  padding: 10px 15px;
+  background-color: #4CAF50;
+  color: white;
+  border-radius: 6px;
+  font-weight: 500;
+  min-width: 120px;
+  text-align: center;
 }
 
 /* Responsive Styles */

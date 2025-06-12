@@ -308,9 +308,6 @@ watch(
             </ul>
           </div>
           <div class ="accounts-list">
-            <button @click="openCreateAccountModal" class="action-button">
-                <span class="action-icon">✏️</span> Create Account
-              </button>
               <button @click="openDeleteAccountModal" class="action-button" style="background-color:#d32f2f;">
                 <span class="action-icon">🗑️</span> Close Account
               </button>
