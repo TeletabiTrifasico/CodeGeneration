@@ -11,15 +11,29 @@ interface AuthState {
     isAuthenticated: boolean;
 }
 
+// Safe JSON parse function
+const safeJsonParse = (value: string | null): any => {
+    if (!value || value === 'null' || value === 'undefined') {
+        return null;
+    }
+
+    try {
+        return JSON.parse(value);
+    } catch (error) {
+        console.warn('Failed to parse JSON from localStorage:', value);
+        return null;
+    }
+};
+
 export const useAuthStore = defineStore('auth', {
     state: (): AuthState => ({
         token: localStorage.getItem('token') || null,
         refreshToken: localStorage.getItem('refresh_token') || null,
-        user: JSON.parse(localStorage.getItem('user') || 'null'),
+        user: safeJsonParse(localStorage.getItem('user')), // Fixed this line
         expiresAt: Number(localStorage.getItem('token_expires_at') || '0'),
         isAuthenticated: false,
     }),
-    
+
     getters: {
         isLoggedIn(): boolean {
             if (!this.token || !this.expiresAt) return false;
