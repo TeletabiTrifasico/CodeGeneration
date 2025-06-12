@@ -235,42 +235,4 @@ public class UserController extends BaseController {
             throw e;
         }
     }
-
-    @GetMapping("/filter")
-    @PreAuthorize("hasRole('EMPLOYEE')")
-    public ResponseEntity<?> filterUsers(
-            @RequestParam(defaultValue = "10") Number limit,
-            @RequestParam(defaultValue = "1") Number page,
-            @RequestParam(required = false) String name,
-            @RequestParam(required = false) String username,
-            @RequestParam(required = false) String email,
-            @RequestParam(required = false) String role,
-            @RequestParam(required = false) String status,
-            @RequestParam(required = false) Integer minAccounts,
-            @RequestParam(required = false) BigDecimal minBalance,
-            @RequestParam(required = false) BigDecimal maxBalance) {
-        
-        try {
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-            }
-
-            boolean enabled = status == null ? true : Boolean.parseBoolean(status);
-            
-            List<User> filteredUsers = userService.filterUsers(
-                name, username, email, role, enabled, minAccounts, 
-                minBalance, maxBalance, page.intValue(), limit.intValue()
-            );
-            
-            List<UserDTO> userDTOs = filteredUsers.stream()
-                    .map(UserDTO::fromEntity)
-                    .collect(Collectors.toList());
-                    
-            return ResponseEntity.ok(userDTOs);
-        } catch (Exception e) {
-            log.error("Error filtering users", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error filtering users: " + e.getMessage());
-        }
-    }
 }
