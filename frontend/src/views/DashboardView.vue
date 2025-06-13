@@ -89,12 +89,13 @@ const fetchFilteredData = async (filters: TransactionFilters) => {
     isLoading.value = true;
     error.value = '';
 
+    // Fetch filtered transactions for that account
     if (selectedAccount.value) {
       await transactionStore.fetchFilteredTransactionsByAccount(
           selectedAccount.value.accountNumber,
           filters
       );
-    } else {
+    } else { //Filter all 
       await transactionStore.fetchFilteredTransactions(filters);
     }
   } catch (err: any) {
@@ -126,18 +127,16 @@ const calculateTotalPages = () => {
   }
 };
 
-// Add function to change transaction page
 const changeTransactionPage = (changeAmount: number) => {
   const newPage = currentTransactionPage.value + changeAmount;
   
-  // Make sure we stay within bounds
+  // Bounds
   if (newPage >= 1 && newPage <= totalTransactionPages.value) {
     currentTransactionPage.value = newPage;
   }
 };
 
 const selectAccount = async (account: Account) => {
-  // Use the store method instead of direct assignment
   accountStore.setSelectedAccount(account);
   
   try {
@@ -229,7 +228,6 @@ onMounted(async () => {
     authStore.logout();
   }
 
-  // Add this at the end of onMounted
   calculateTotalPages();
 });
 
@@ -256,23 +254,18 @@ const getTransactionDescription = (transaction: Transaction): string => {
   return transaction.description || 'Transaction';
 };
 
-// Replace the isPositiveTransaction function with this improved version
 const isPositiveTransaction = (transaction: Transaction): boolean => {
-  // If a specific account is selected, use that to determine direction
+  const userAccountNumbers = accounts.value.map(acc => acc.accountNumber);
+
   if (selectedAccount.value) {
-    // If the selected account is the destination, it's receiving money (positive)
     if (transaction.destinationAccount.accountNumber === selectedAccount.value.accountNumber) {
-      return true;
+      return true; // Money coming in (positive)
     }
-    // If the selected account is the source, it's sending money (negative)
     if (transaction.sourceAccount.accountNumber === selectedAccount.value.accountNumber) {
-      return false;
+      return false; // Money going out (negative)
     }
-    // If neither matches, don't show this transaction (shouldn't happen)
-    return false;
   } else {
     // No specific account selected, show all user transactions
-    const userAccountNumbers = accounts.value.map(acc => acc.accountNumber);
     
     // Money coming in from outside (positive)
     if (userAccountNumbers.includes(transaction.destinationAccount.accountNumber) &&
@@ -286,16 +279,15 @@ const isPositiveTransaction = (transaction: Transaction): boolean => {
       return false;
     }
     
-    // Internal transfer between accounts - show as neutral (use destination as positive)
+    // Internal transfer between accounts - show destination as positive
     if (userAccountNumbers.includes(transaction.sourceAccount.accountNumber) &&
         userAccountNumbers.includes(transaction.destinationAccount.accountNumber)) {
-      // For "All Accounts" view, internal transfers appear as positive for destination
       return true;
     }
   }
   
-  // Default fallback
-  return false;
+  // Default fallback - if we can't determine, show as positive
+  return true;
 };
 
 // Add the handleFiltersChanged method

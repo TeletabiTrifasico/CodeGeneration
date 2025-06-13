@@ -228,29 +228,29 @@ export const useAccountStore = defineStore('account', {
         },
 
         async deleteAccount(accountNumber: string) {
-  const authStore = useAuthStore();
+            const authStore = useAuthStore();
 
-  if (!authStore.isLoggedIn) {
-    throw new Error('Not authenticated');
-  }
+            if (!authStore.isLoggedIn) {
+                throw new Error('Not authenticated');
+            }
 
-  try {
-    this.loading = true;
-    this.error = null;
+            try {
+                this.loading = true;
+                this.error = null;
 
-    const response = await apiClient.put(
-      `${API_ENDPOINTS.account.disable}/${accountNumber}`,
-      { headers: getAuthHeader() }
-    );
+                const response = await apiClient.put(
+                `${API_ENDPOINTS.account.disable}/${accountNumber}`,
+                { headers: getAuthHeader() }
+                );
 
-    return response.data;
-  } catch (error: any) {
-    console.error('Error deleting account:', error);
-    this.error = error.response?.data?.message || error.message || 'Failed to delete account';
-    throw this.error;
-  } finally {
-    this.loading = false;
-  }
-}
+                return response.data;
+            } catch (error: any) {
+                console.error('Error deleting account:', error);
+                this.error = error.response?.data?.message || error.message || 'Failed to delete account';
+                throw this.error;
+            } finally {
+                this.loading = false;
+            }
+        }
     }
 });
