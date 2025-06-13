@@ -64,12 +64,6 @@ const closeTransferModal = () => {
   showTransferModal.value = false;
   refreshData();
 }
-const openCreateAccountModal = () => {
-  showCreateAccountModal.value = true;
-}
-const closeCreateAccountModal = () => {
-  showCreateAccountModal.value = false;
-}
 
 const openDeleteAccountModal = () => {
   showDeleteAccountModal.value = true;
@@ -78,10 +72,6 @@ const closeDeleteAccountModal = () => {
   showDeleteAccountModal.value = false;
 }
 
-
-const handleLogout = () => {
-  authStore.logout();
-};
 const selectAccount = async (accountId: Number) => {
   selectedAccount = user.accounts.filter(acc => acc.id === accountId)[0];
   try {
@@ -124,7 +114,6 @@ onMounted(async () => {
     await loadData();
   } catch (err) {
     console.error('Token validation error:', err);
-    // authStore.logout() will be called in validateToken if it fails
   }
   isLoading.value = false;
 });
@@ -164,36 +153,34 @@ const isPositiveTransaction = (transaction: Transaction): boolean => {
   const userAccountNumbers = user.accounts.map(acc => acc.accountNumber);
 
   if (selectedAccount) {
-    // If a specific account is selected
     if (transaction.destinationAccount.accountNumber === selectedAccount.accountNumber) {
-      return true; // Money coming in to this account
+      return true; // Money coming in
     }
     if (transaction.sourceAccount.accountNumber === selectedAccount.accountNumber) {
-      return false; // Money going out from this account
+      return false; // Money going out
     }
   } else {
-    // If money coming in from external source
+    // If money coming in:
     if (userAccountNumbers.includes(transaction.destinationAccount.accountNumber) &&
         !userAccountNumbers.includes(transaction.sourceAccount.accountNumber)) {
       return true;
     }
-    // If money going out to external destination
+    // If money going out:
     if (userAccountNumbers.includes(transaction.sourceAccount.accountNumber) &&
         !userAccountNumbers.includes(transaction.destinationAccount.accountNumber)) {
       return false;
     }
-    // If internal transfer, it's neutral (but we'll show as positive)
+    // If internal transfer:
     if (userAccountNumbers.includes(transaction.sourceAccount.accountNumber) &&
         userAccountNumbers.includes(transaction.destinationAccount.accountNumber)) {
       return true;
     }
   }
-
   return true;
 };
 
 const goBackToEmployeePanel = () => {
-  // Force a refresh when navigating back
+  // Force refresh when navigating back
   router.push('/employeePanel?refresh=' + Date.now());
 };
 
