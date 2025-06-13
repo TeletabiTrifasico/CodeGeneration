@@ -81,6 +81,7 @@ public class AtmOperationsTest extends BaseControllerTest {
 
         mockMvc.perform(post("/api/atm/withdraw")
                 .contentType("application/json")
-                .content(objectMapper.writeValueAsString(request)))            .andExpect(status().isUnauthorized());
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
     }
 }

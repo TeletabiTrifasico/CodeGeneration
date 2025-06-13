@@ -52,88 +52,7 @@ public class AtmController extends BaseController {
     })
     @PostMapping("/deposit")
     public ResponseEntity<AtmTransactionResponse> deposit(@Valid @RequestBody AtmTransactionRequest request) {
-        log.info("Processing deposit request: {}", request);
-        
-        try {
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
-                log.warn("Unauthorized deposit attempt for account: {}", request.getAccountNumber());
-                return ResponseEntity.status(401).build();
-            }
-            
-            String username = authentication.getName();
-            Account account = accountService.getAccountByNumberAndUsername(request.getAccountNumber(), username);
-            
-            if (account == null) {
-                throw new ResourceNotFoundException("Account not found: " + request.getAccountNumber());
-            }
-            
-            // deposit
-            double amount = request.getAmount();
-            BigDecimal depositAmount = BigDecimal.valueOf(amount);            // Check if deposit respects daily transfer limits (deposits use transfer limits)
-            // Convert both amount and limits to EUR for standardized comparison
-            BigDecimal amountInEur = currencyExchangeService.convertAmount(depositAmount, account.getCurrency(), Currency.EUR);
-            BigDecimal singleLimitInEur = currencyExchangeService.convertAmount(account.getSingleTransferLimit(), account.getCurrency(), Currency.EUR);
-            BigDecimal dailyLimitInEur = currencyExchangeService.convertAmount(account.getDailyTransferLimit(), account.getCurrency(), Currency.EUR);
-            BigDecimal transferUsedInEur = currencyExchangeService.convertAmount(account.getTransferUsedToday(), account.getCurrency(), Currency.EUR);
-            
-            // Check single transaction limit in EUR
-            if (amountInEur.compareTo(singleLimitInEur) > 0) {
-                throw new IllegalArgumentException("Deposit amount exceeds single transfer limit of " + 
-                    singleLimitInEur + " EUR equivalent");
-            }
-            
-            // Check daily limit in EUR
-            BigDecimal newTotalInEur = transferUsedInEur.add(amountInEur);
-            if (newTotalInEur.compareTo(dailyLimitInEur) > 0) {
-                throw new IllegalArgumentException("Deposit amount exceeds daily transfer limit of " + 
-                    dailyLimitInEur + " EUR equivalent");
-            }
-            
-            // Process deposit
-            accountService.increaseBalance(account, depositAmount);
-            account.updateTransferUsed(depositAmount); // Update daily transfer usage for deposits
-            accountService.saveAccount(account); // Save the updated account with usage tracking
-            
-            // Create transaction record
-            Transaction transaction = transactionService.createAtmTransaction(
-                    account, 
-                    amount, 
-                    TransactionType.ATM_DEPOSIT, 
-                    request.getDescription()
-            );
-            
-            // Build response
-            AtmTransactionResponse response = AtmTransactionResponse.builder()
-                    .success(true)
-                    .transactionReference(transaction.getTransactionReference())
-                    .updatedBalance(account.getBalance().doubleValue())
-                    .build();
-            
-            return ResponseEntity.ok(response);
-            
-        } catch (IllegalArgumentException e) {
-            log.warn("Deposit limit violation: {}", e.getMessage());
-            return ResponseEntity.status(400)
-                    .body(AtmTransactionResponse.builder()
-                            .success(false)
-                            .errorMessage(e.getMessage())
-                            .build());
-        } catch (ResourceNotFoundException e) {
-            log.error("Error processing deposit: {}", e.getMessage());
-            return ResponseEntity.status(404)
-                    .body(AtmTransactionResponse.builder()
-                            .success(false)
-                            .errorMessage(e.getMessage())
-                            .build());
-        } catch (Exception e) {
-            log.error("Error processing deposit", e);
-            return ResponseEntity.status(500)
-                    .body(AtmTransactionResponse.builder()
-                            .success(false)
-                            .errorMessage("An error occurred while processing your deposit")
-                            .build());
-        }
+        return processAtmTransaction(request, TransactionType.ATM_DEPOSIT, "deposit");
     }
     
     @Operation(summary = "Withdraw money", description = "Withdraw money from an account via ATM")
@@ -147,94 +66,181 @@ public class AtmController extends BaseController {
     })
     @PostMapping("/withdraw")
     public ResponseEntity<AtmTransactionResponse> withdraw(@Valid @RequestBody AtmTransactionRequest request) {
-        log.info("Processing withdrawal request: {}", request);
+        return processAtmTransaction(request, TransactionType.ATM_WITHDRAWAL, "withdrawal");
+    }
+
+    /**
+     * Common method to process ATM transactions (deposits and withdrawals)
+     */
+    private ResponseEntity<AtmTransactionResponse> processAtmTransaction(
+            AtmTransactionRequest request, 
+            TransactionType transactionType, 
+            String operationType) {
+        
+        log.info("Processing {} request: {}", operationType, request);
         
         try {
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated()) {
-                log.warn("Unauthorized withdrawal attempt for account: {}", request.getAccountNumber());
-                return ResponseEntity.status(401).build();
-            }
+            // Step 1: Validate authentication and get account
+            Account account = validateAndGetAccount(request.getAccountNumber(), operationType);
             
-            String username = authentication.getName();
-            Account account = accountService.getAccountByNumberAndUsername(request.getAccountNumber(), username);
+            // Step 2: Validate transaction limits
+            BigDecimal amount = BigDecimal.valueOf(request.getAmount());
+            validateTransactionLimits(account, amount, transactionType);
             
-            if (account == null) {
-                throw new ResourceNotFoundException("Account not found: " + request.getAccountNumber());
-            }
+            // Step 3: Process the transaction
+            processAccountTransaction(account, amount, transactionType);
             
-            // Validate withdrawal
-            double amount = request.getAmount();
-            BigDecimal withdrawalAmount = BigDecimal.valueOf(amount);            // Check if withdrawal respects withdrawal limits
-            // Convert both amount and limits to EUR for standardized comparison
-            BigDecimal amountInEur = currencyExchangeService.convertAmount(withdrawalAmount, account.getCurrency(), Currency.EUR);
-            BigDecimal singleLimitInEur = currencyExchangeService.convertAmount(account.getSingleWithdrawalLimit(), account.getCurrency(), Currency.EUR);
-            BigDecimal dailyLimitInEur = currencyExchangeService.convertAmount(account.getDailyWithdrawalLimit(), account.getCurrency(), Currency.EUR);
-            BigDecimal withdrawalUsedInEur = currencyExchangeService.convertAmount(account.getWithdrawalUsedToday(), account.getCurrency(), Currency.EUR);
-            
-            // Check single transaction limit in EUR
-            if (amountInEur.compareTo(singleLimitInEur) > 0) {
-                throw new IllegalArgumentException("Withdrawal amount exceeds single withdrawal limit of " + 
-                    singleLimitInEur + " EUR equivalent");
-            }
-            
-            // Check daily limit in EUR
-            BigDecimal newTotalInEur = withdrawalUsedInEur.add(amountInEur);
-            if (newTotalInEur.compareTo(dailyLimitInEur) > 0) {
-                throw new IllegalArgumentException("Withdrawal amount exceeds daily withdrawal limit of " + 
-                    dailyLimitInEur + " EUR equivalent");
-            }
-            
-            // Process withdrawal
-            accountService.decreaseBalance(account, withdrawalAmount);
-            account.updateWithdrawalUsed(withdrawalAmount); // Update daily withdrawal usage
-            accountService.saveAccount(account); // Save the updated account with usage tracking
-            
-            // Create transaction record
+            // Step 4: Create transaction record
             Transaction transaction = transactionService.createAtmTransaction(
                     account, 
-                    amount, 
-                    TransactionType.ATM_WITHDRAWAL, 
+                    request.getAmount(), 
+                    transactionType, 
                     request.getDescription()
             );
             
-            // Build response
-            AtmTransactionResponse response = AtmTransactionResponse.builder()
-                    .success(true)
-                    .transactionReference(transaction.getTransactionReference())
-                    .updatedBalance(account.getBalance().doubleValue())
-                    .build();
-            
-            return ResponseEntity.ok(response);
+            // Step 5: Build and return success response
+            return buildSuccessResponse(transaction, account);
             
         } catch (InsufficientFundsException e) {
-            log.warn("Insufficient funds for withdrawal: {}", e.getMessage());
-            return ResponseEntity.status(400)
-                    .body(AtmTransactionResponse.builder()
-                            .success(false)
-                            .errorMessage(e.getMessage())
-                            .build());
+            return buildErrorResponse(400, e.getMessage(), operationType + " insufficient funds");
         } catch (IllegalArgumentException e) {
-            log.warn("Withdrawal limit violation: {}", e.getMessage());
-            return ResponseEntity.status(400)
-                    .body(AtmTransactionResponse.builder()
-                            .success(false)
-                            .errorMessage(e.getMessage())
-                            .build());
+            return buildErrorResponse(400, e.getMessage(), operationType + " limit violation");
         } catch (ResourceNotFoundException e) {
-            log.error("Error processing withdrawal: {}", e.getMessage());
-            return ResponseEntity.status(404)
-                    .body(AtmTransactionResponse.builder()
-                            .success(false)
-                            .errorMessage(e.getMessage())
-                            .build());
+            return buildErrorResponse(404, e.getMessage(), operationType + " account not found");
         } catch (Exception e) {
-            log.error("Error processing withdrawal", e);
-            return ResponseEntity.status(500)
-                    .body(AtmTransactionResponse.builder()
-                            .success(false)
-                            .errorMessage("An error occurred while processing your withdrawal")
-                            .build());
+            log.error("Error processing " + operationType, e);
+            return buildErrorResponse(500, "An error occurred while processing your " + operationType, operationType + " error");
         }
+    }
+
+    /**
+     * Validates authentication and retrieves the account
+     */
+    private Account validateAndGetAccount(String accountNumber, String operationType) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            log.warn("Unauthorized {} attempt for account: {}", operationType, accountNumber);
+            throw new SecurityException("User not authenticated");
+        }
+        
+        String username = authentication.getName();
+        Account account = accountService.getAccountByNumberAndUsername(accountNumber, username);
+        
+        if (account == null) {
+            throw new ResourceNotFoundException("Account not found: " + accountNumber);
+        }
+        
+        return account;
+    }
+
+    /**
+     * Validates transaction limits based on transaction type
+     */
+    private void validateTransactionLimits(Account account, BigDecimal amount, TransactionType transactionType) {
+        // Convert amount to EUR standard using xaffs currency exchange service
+        BigDecimal amountInEur = currencyExchangeService.convertAmount(amount, account.getCurrency(), Currency.EUR);
+        
+        if (transactionType == TransactionType.ATM_DEPOSIT) {
+            validateDepositLimits(account, amount, amountInEur);
+        } else if (transactionType == TransactionType.ATM_WITHDRAWAL) {
+            validateWithdrawalLimits(account, amount, amountInEur);
+        }
+    }
+
+    /**
+     * Validates deposit limits
+     */
+    private void validateDepositLimits(Account account, BigDecimal amount, BigDecimal amountInEur) {
+        BigDecimal singleLimitInEur = currencyExchangeService.convertAmount(
+                account.getSingleTransferLimit(), account.getCurrency(), Currency.EUR);
+        BigDecimal dailyLimitInEur = currencyExchangeService.convertAmount(
+                account.getDailyTransferLimit(), account.getCurrency(), Currency.EUR);
+        BigDecimal transferUsedInEur = currencyExchangeService.convertAmount(
+                account.getTransferUsedToday(), account.getCurrency(), Currency.EUR);
+        
+        validateLimits(amountInEur, singleLimitInEur, dailyLimitInEur, transferUsedInEur, 
+                "transfer", "Deposit");
+    }
+
+    /**
+     * Validates withdrawal limits
+     */
+    private void validateWithdrawalLimits(Account account, BigDecimal amount, BigDecimal amountInEur) {
+        BigDecimal singleLimitInEur = currencyExchangeService.convertAmount(
+                account.getSingleWithdrawalLimit(), account.getCurrency(), Currency.EUR);
+        BigDecimal dailyLimitInEur = currencyExchangeService.convertAmount(
+                account.getDailyWithdrawalLimit(), account.getCurrency(), Currency.EUR);
+        BigDecimal withdrawalUsedInEur = currencyExchangeService.convertAmount(
+                account.getWithdrawalUsedToday(), account.getCurrency(), Currency.EUR);
+        
+        validateLimits(amountInEur, singleLimitInEur, dailyLimitInEur, withdrawalUsedInEur, 
+                "withdrawal", "Withdrawal");
+    }
+
+    /**
+     * Common limit validation logic
+     */
+    private void validateLimits(BigDecimal amountInEur, BigDecimal singleLimitInEur, 
+                               BigDecimal dailyLimitInEur, BigDecimal usedTodayInEur, 
+                               String limitType, String operationType) {
+        // Check single transaction limit
+        if (amountInEur.compareTo(singleLimitInEur) > 0) {
+            throw new IllegalArgumentException(String.format(
+                    "%s amount exceeds single %s limit of %s EUR equivalent", 
+                    operationType, limitType, singleLimitInEur));
+        }
+        
+        // Check daily limit
+        BigDecimal newTotalInEur = usedTodayInEur.add(amountInEur);
+        if (newTotalInEur.compareTo(dailyLimitInEur) > 0) {
+            throw new IllegalArgumentException(String.format(
+                    "%s amount exceeds daily %s limit of %s EUR equivalent", 
+                    operationType, limitType, dailyLimitInEur));
+        }
+    }
+
+    /**
+     * Processes the account transaction based on type
+     */
+    private void processAccountTransaction(Account account, BigDecimal amount, TransactionType transactionType) {
+        if (transactionType == TransactionType.ATM_DEPOSIT) {
+            accountService.increaseBalance(account, amount);
+            account.updateTransferUsed(amount);
+        } else if (transactionType == TransactionType.ATM_WITHDRAWAL) {
+            accountService.decreaseBalance(account, amount);
+            account.updateWithdrawalUsed(amount);
+        }
+        accountService.saveAccount(account);
+    }
+
+    /**
+     * Builds a success response
+     */
+    private ResponseEntity<AtmTransactionResponse> buildSuccessResponse(Transaction transaction, Account account) {
+        AtmTransactionResponse response = AtmTransactionResponse.builder()
+                .success(true)
+                .transactionReference(transaction.getTransactionReference())
+                .updatedBalance(account.getBalance().doubleValue())
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Builds an error response
+     */
+    private ResponseEntity<AtmTransactionResponse> buildErrorResponse(int statusCode, String errorMessage, String logMessage) {
+        if (statusCode == 400) {
+            log.warn(logMessage + ": {}", errorMessage);
+        } else {
+            log.error(logMessage + ": {}", errorMessage);
+        }
+        
+        AtmTransactionResponse response = AtmTransactionResponse.builder()
+                .success(false)
+                .errorMessage(errorMessage)
+                .build();
+        
+        return ResponseEntity.status(statusCode).body(response);
     }
 }

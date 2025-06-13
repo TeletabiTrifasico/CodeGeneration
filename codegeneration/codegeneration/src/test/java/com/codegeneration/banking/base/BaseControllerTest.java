@@ -34,9 +34,10 @@ public abstract class BaseControllerTest {
 
     @MockBean protected AccountService accountService;
     @MockBean protected TransactionService transactionService;
-    @MockBean protected TokenBlacklistService tokenBlacklistService;    protected static final String TEST_USERNAME        = "user1";
-   
-   //set up test constants
+    @MockBean protected TokenBlacklistService tokenBlacklistService;
+
+    //set up test constants
+    protected static final String TEST_USERNAME        = "user1";   
     protected static final String TEST_PASSWORD        = "user123";
     protected static final String TEST_ACCOUNT_NUMBER  = "NL99BANK012345679";
     protected static final BigDecimal INITIAL_BALANCE  = BigDecimal.valueOf(1000.0);
