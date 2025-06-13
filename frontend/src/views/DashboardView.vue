@@ -234,6 +234,13 @@ onMounted(async () => {
 });
 
 const getTransactionDescription = (transaction: Transaction): string => {
+  // Handle ATM transactions first
+  if (transaction.transactionType === 'ATM_DEPOSIT') {
+    return 'ATM Deposit';
+  } else if (transaction.transactionType === 'ATM_WITHDRAWAL') {
+    return 'ATM Withdrawal';
+  }
+
   const userAccountNumbers = accounts.value.map(acc => acc.accountNumber);
 
   let isIncoming = userAccountNumbers.includes(transaction.destinationAccount.accountNumber) &&
@@ -258,6 +265,13 @@ const getTransactionDescription = (transaction: Transaction): string => {
 
 // Replace the isPositiveTransaction function with this improved version
 const isPositiveTransaction = (transaction: Transaction): boolean => {
+  // Handle ATM transactions first based on transaction type
+  if (transaction.transactionType === 'ATM_DEPOSIT') {
+    return true;  // Deposits are always positive (money coming in)
+  } else if (transaction.transactionType === 'ATM_WITHDRAWAL') {
+    return false; // Withdrawals are always negative (money going out)
+  }
+
   // If a specific account is selected, use that to determine direction
   if (selectedAccount.value) {
     // If the selected account is the destination, it's receiving money (positive)
